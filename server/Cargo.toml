@@ -8,6 +8,5 @@ edition = "2021"
 [dependencies]
 clap = { version = "*", features = ["derive"] }
 log = "*"
-# cargo is stupid and using ratls by path conflicts with veraison-verifier that uses ratls as well
-ratls = { git = "https://github.com/islet-project/ratls" }
-veraison-verifier = { git = "https://github.com/islet-project/veraison-verifier" }
+ratls = { path = "../ratls" }
+# veraison-verifier = { git = "https://github.com/islet-project/veraison-verifier" }
