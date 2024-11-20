@@ -1598,8 +1598,9 @@ dependencies = [
 [[package]]
 name = "ratls"
 version = "0.1.0"
+source = "git+https://github.com/islet-project/ratls#3c852a38ed6c80d3561baadff11e6ccc21693b73"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.21.7",
  "bcder",
  "env_logger",
  "lazy_static",
@@ -2265,8 +2266,9 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 [[package]]
 name = "veraison-verifier"
 version = "0.1.0"
+source = "git+https://github.com/islet-project/veraison-verifier#b3068de3a627115c0c68f92624c90638763e5ce7"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.21.7",
  "ear",
  "log",
  "ratls",
