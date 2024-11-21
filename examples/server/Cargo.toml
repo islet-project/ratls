@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 clap = { version = "*", features = ["derive"] }
 log = "*"
-ratls = { path = "../ratls" }
+ratls = { path = "../../ratls" }
 # veraison-verifier = { git = "https://github.com/islet-project/veraison-verifier" }
