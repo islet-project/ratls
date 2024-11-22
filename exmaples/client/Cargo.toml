@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.3.11", features = ["derive"] }
 log = "0.4.19"
-ratls = { path = "../ratls" }
+ratls = { path = "../../ratls" }

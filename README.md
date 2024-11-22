@@ -1,154 +1,62 @@
-## Generate certs for CA & server (optional, certs are in `server/cert`)
+# RA-TLS for ARM CCA
 
-[https://mcilis.medium.com/how-to-create-a-server-certificate-with-configuration-using-openssl-ea3d2c4506ac](https://mcilis.medium.com/how-to-create-a-server-certificate-with-configuration-using-openssl-ea3d2c4506ac)
+To establish a secure connection between the Realm and the Reliant Party, a protocol that combines Remote Attestation with Transport Security Layer (TLS) needs to be used. This project uses a similar approach to the SGX Attested TLS implementation. Such solution has several advantages compared to crafting a custom cryptographic protocol:
+* The TLS protocol is mature and is well-supported by all popular cryptographic libraries (OpenSSL, mbedtls, etc.).
+* As TLS is widely used, it will most likely be adjusted to support Post Quantum Computing cipher suites. This will ease the future transition to Post Quantum TLS.
+* The technique doesn't require changes in the TLS libraries, so the application developers can use the libraries in the same way as usual.
+* The inability to establish a secure connection means that the remote attestation has failed. No additional handling of errors is needed.
+* It protects from the masquerading attacks.
 
-## Start and provison veraison
-Use [rocli](https://github.sec.samsung.net/SYSSEC/rocli) tool using instructions in `rocli/demo` directory.
+This technique is leveraged by many Confidential Computing projects, such as:
+* [Edgelesssys Constellation aTLS](https://github.com/edgelesssys/constellation/tree/main/internal/atls)
+* [SGX Attested TLS](https://github.com/intel/linux-sgx/tree/master/SampleCode/SampleAttestedTLS)
+* [OpenEnclave Attested TLS](https://github.com/openenclave/openenclave/blob/master/samples/attested_tls/AttestedTLSREADME.md)
+* [Gramine RA-TLS](https://github.com/gramineproject/gramine/tree/master/tools/sgx/ra-tls)
+* [Inclave Containers RATS-TLS](https://github.com/inclavare-containers/rats-tls/blob/master/docs/design/design.md)
 
-## Running Veraison
+There is also an effort to standardize and unify this approach over the existing Confidential Computing (CC) technologies:
+* [Using Attestation in Transport Layer Security (TLS) and Datagram Transport Layer Security (DTLS) IETF draft](https://datatracker.ietf.org/doc/draft-fossati-tls-attestation/), the reference implementation based on Mbed TLS can be found here [tls-attestation](https://github.com/hannestschofenig/mbedtls/tree/tls-attestation)
+* [Confidential Computing Consortium Interoperable TLS](https://github.com/CCC-Attestation/interoperable-ra-tls), [Unifying Remote Attestation Protocol Implementations (blogpost)](https://confidentialcomputing.io/2023/03/06/unifying-remote-attestation-protocol-implementations/)
 
-```
-git clone https://github.com/veraison/services
-git clone https://github.sec.samsung.net/SYSSEC/rocli
-git clone https://github.sec.samsung.net/SYSSEC/ratls
+## RA-TLS details
 
-cd services
-cat ../rocli/veraison-patch | git apply
+The RA-TLS implementation is based on the ideas used in SGX Attested TLS and Edgelesssys Constellation aTLS projects. The RA-TLS library contained in this repository utilizes the TLS layer from the RusTLS library and performs remote attestation by providing custom certificate resolvers and verifiers. During the startup, a Realm application generates an asymmetric key pair (a private key and a corresponding public key). The keys will be used to generate a self-signed certificate. During the TLS handshake, a Verifier (or a Reliant Party) sends a request containing the randomly generated nonce. The Realm application calculates a challenge as a hash of the nonce (received from the requester) and the public key (challenge = Hash(nonce || Public Key)). Then, the application requests the CCA attestation token by providing challenge. The resulting attestation token is embedded into the self-signed certificate. Next, the certificate is sent to the requester. The requester verifies the self-signed certificate, checks the cryptographic binding between the attestation token and the certificate and verifies the content of the token. The negative appraisal of the CCA attestation token causes a disconnection.
 
-make docker-deploy
-source deployments/docker/env.bash
-```
+#### X.509 certificate with the embedded CCA attestation token
+![](./doc/ratls-cert.png)
 
-### Check if its alive
-```
-veraison status
-```
-All 3 services needs to be running
+### Use cases
+The library can be utilized in three use cases (notice, we are using here the same terminology as in [RFC 8446](https://www.rfc-editor.org/rfc/rfc8446.html#section-1.1) i.e. the client just means "The endpoint initiating the TLS connection.", the server is defined as: "The endpoint that did not initiate the TLS connection"):
 
-### Provision values
+#### A Realm application acts as a server
+![](./doc/use1.png)
 
-#### Install dependencies:
-```
-go install github.com/veraison/corim/cocli@latest
-go install github.com/veraison/ear/arc@latest
-go install github.com/veraison/evcli@latest
-```
+* The client sends a ClientHello message. The ServerName field carries the nonce.
+* The server generates the attestation report using the received nonce and sends the report back within the Server Certificate
+* The client verifies the report (e.g. by using an external Verifier)
+* Optionally, the client can send its Client Certificate for authentication
 
-#### Run provisioning
-```
-cd rocli/demo
-./run.sh
-```
+#### A Realm application acts as a client
+![](./doc/use2.png)
 
-It should end with with the approval from CCA_SSD_PLATFORM.
+* The client sends a ClientHello message.
+* The server replies with a Server Certificate and a nonce. The nonce is encoded as the Distinguished Name of an acceptable CA (Certificate Authority).
+* The client uses the received nonce to generate an attestation report. The Client Certificate containing the report is send back to the server.
+* The server verifies the attestation report.
 
-## "Reprovisioning"
-### Checking what is in stores already
-```
-veraison stores
-```
+#### Mutual attestation
+![](./doc/use3.png)
 
-### To clear stores run:
-```
-veraison clear-stores
-```
-This is handy when uploading another reference values for the same id, as veraison might complain and crazy stuff **WILL** happen.
+* The client sends a ClientHello message. The ServerName field carries the nonce.
+* The server generates the server attestation report using the client nonce and sends the report back to the client within the Server Certificate. The nonce is encoded as the Distinguished Name of an acceptable CA (Certificate Authority).
+* The client verifies the server attestation report
+* The client uses the received nonce to generate the client attestation report. The Client Certificate containing the report is send back to the server,
+* The server verifies the client attestation report.
 
-## Run RaTls server
-```sh
-cd server
-cargo run -- -c cert/server.crt -k cert/server.key -p keys/pkey.jwk
-```
+### Differeces between this design and Intel's SGX Attested TLS
 
-## Run RaTls client 
-```sh
-cd client
-cargo run -- -r root-ca.crt -t token.bin
-```
+The main difference between RA-TLS and SGX Attested TLS is that in this case the challenge is calculated from the nonce and the public key. It's because in case of Intel SGX, the freshness of the attestation evidence can be checked through timestamps attached to it. EPID-based attestation reports have a time stamp. In case of ECDSA-based attestation, the TCB info and the certificate revocation lists have a validity periods.
 
-## Expected result:
+An ARM CCA token neither includes timestamps nor validity periods. Therefore, a standard nonce-based method is used to achieve freshness of the attestation evidence. The freshness of the exchanged messages in the protocol is guaranteed by the TLS itself, as the nonces in the record layer protect against replays.
 
-### Server:
-```
-    Finished dev [unoptimized + debuginfo] target(s) in 4.35s
-     Running `target/debug/server -c cert/server.crt -k cert/server.key -p keys/pkey.jwk`
-[2023-07-13T15:44:14Z INFO  server] New connection accepted
-[2023-07-13T15:44:17Z DEBUG rustls::server::hs] decided upon suite TLS13_AES_256_GCM_SHA384
-[2023-07-13T15:44:17Z INFO  ratls::cert_verifier] Received client CCA token:
-== Realm Token cose:
-Protected header               = Header { alg: Some(Assigned(ES384)), crit: [], content_type: None, key_id: [], iv: [], partial_iv: [], counter_signatures: [], rest: [] }
-Unprotected header             = Header { alg: None, crit: [], content_type: None, key_id: [], iv: [], partial_iv: [], counter_signatures: [], rest: [] }
-Signature                      = [536a25598b9aadbefdc435dfee855644e07fe28abe1c9f4bf525c0ffa3c34e7f19f9c9f3c5eeda0cadf8fa4599f1e0097faffd144e141ae126cecc86f90d37b7bf49c0e59c88fa10eeabda3e9001a5c67aa82c4913ba5f2a9e0925ed06029797]
-== End of Realm Token cose
-
-== Realm Token:
-Realm challenge                (#10) = [77489c5a49e016107d28c7a877e97e5232f2aed10b6bf78dbdd7b6f845e5575530e82dc5864cfe19d4cdf6016ab6a53706db68bc5ee6283039b12f400385dab8]
-Realm signing public key       (#44237) = [040c843c65cd15e364d9f93559fbcf4c896628446aa08631cd6e3e3a279c09878077d91577b50bcbd2ba896f56214feecbee0a4e7defddf7cf9b2f8a2482144de031da083cae341129acced6f5543e2442a45bca4244cfc6b081a5ecfe07ae8cac]
-Realm initial measurement      (#44238) = [fdd82b3e2ef1da0091a3a9ce22549c4258265968d9c6487ea9886664b94a9b61]
-Realm hash algo id             (#44236) = "sha-256"
-Realm personalization value    (#44235) = [00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000]
-Realm public key hash algo id  (#44240) = "sha-256"
-Realm measurements             (#44239)
-  Realm extensible measurement   (#0) = [0000000000000000000000000000000000000000000000000000000000000000]
-  Realm extensible measurement   (#2) = [0000000000000000000000000000000000000000000000000000000000000000]
-  Realm extensible measurement   (#1) = [0000000000000000000000000000000000000000000000000000000000000000]
-  Realm extensible measurement   (#3) = [0000000000000000000000000000000000000000000000000000000000000000]
-== End of Realm Token.
-
-
-== Platform Token cose:
-Protected header               = Header { alg: Some(Assigned(ES384)), crit: [], content_type: None, key_id: [], iv: [], partial_iv: [], counter_signatures: [], rest: [] }
-Unprotected header             = Header { alg: None, crit: [], content_type: None, key_id: [], iv: [], partial_iv: [], counter_signatures: [], rest: [] }
-Signature                      = [6afb300157428897bb3cdf198c5fcf93cc7505008d838520174df3612ed0613d7987d3bcaf8e1158136e3bbef1071668954b05e690bae8447aa3babd4bd9764488e2783ff009a3dc4818bc84c62d0e2f369126a81ba0b75b02c7636334ebcc7f]
-== End of Platform Token cose
-
-== Platform Token:
-Lifecycle                      (#2395) = 12288
-Verification service           (#2400) = "http://whatever.com"
-Challange                      (#10) = [21baae2c2a77f5dfc220e548221e3456a826677d9d4ac2532a024e0f610c10b2]
-Configuration                  (#2401) = [efbeadde]
-Platform hash algo             (#2402) = "sha-256"
-Profile                        (#265) = "http://arm.com/CCA-SSD/1.0.0"
-Instance ID                    (#256) = [011be9c336d7a70b661382934a260192351ac61d24e20d882f494abee87f8a1e98]
-Implementation ID              (#2396) = [aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbccccccccccccccccdddddddddddddddd]
-Platform SW components         (#2399)
-  SW component #0:
-    SW Type                        (#1) = "BL1"
-    Version                        (#4) = "0.1.0"
-    Measurement value              (#2) = [697de4407dae45c07506d1f00b3dbf5ce1db41f69e1750a311f91d213e119889]
-    Hash algorithm                 (#6) = "sha-256"
-    Signer ID                      (#5) = [c6c32a957df4c6698c550b695d022ed5180cae71f8b49cbb75e6061c2ef497e1]
-  SW component #1:
-    Hash algorithm                 (#6) = "sha-512"
-    Version                        (#4) = "1.9.0+0"
-    Signer ID                      (#5) = [a064b1ad60fa183394dda57891357f972e4fe722782adff1854c8b2a142c0410]
-    SW Type                        (#1) = "BL2"
-    Measurement value              (#2) = [8e175a1dcd79b8b51ce9e259c2568305b73f5f26f5673a8cf781a94598e44f67fdf4926869ee7667e9120b5c1b97625cc96d347c23ce3c5f763bf1d9b54781f6]
-== End of Platform Token
-
-[2023-07-13T15:44:17Z DEBUG reqwest::connect] starting new connection: http://localhost:8080/
-[2023-07-13T15:44:17Z INFO  veraison_verifier::verifier] Opened session with nonce /BIP8vXgU2l3UfFgLW33s7gBbFnfWPun9SNsnYO5OyE=
-[2023-07-13T15:44:17Z INFO  veraison_verifier::verifier] Got verification results from Veraison
-[2023-07-13T15:44:17Z INFO  veraison_verifier::verifier] Session /BIP8vXgU2l3UfFgLW33s7gBbFnfWPun9SNsnYO5OyE= deleted
-[2023-07-13T15:44:17Z INFO  veraison_verifier::verifier] Submod CCA_SSD_PLATFORM affirms token
-[2023-07-13T15:44:17Z INFO  veraison_verifier::verifier] Verification passed successfully
-[2023-07-13T15:44:17Z INFO  server] Message from client: "GIT"
-[2023-07-13T15:44:17Z INFO  server] Connection closed
-```
-
-### Client
-```
-    Finished dev [unoptimized + debuginfo] target(s) in 0.06s
-     Running `target/debug/client -r root-ca.crt -t token.bin`
-[2023-07-13T15:45:18Z DEBUG rustls::client::hs] No cached session for DnsName("localhost")
-[2023-07-13T15:45:18Z DEBUG rustls::client::hs] Not resuming any session
-[2023-07-13T15:45:18Z INFO  client] Connection established
-[2023-07-13T15:45:18Z DEBUG rustls::client::hs] Using ciphersuite TLS13_AES_256_GCM_SHA384
-[2023-07-13T15:45:18Z DEBUG rustls::client::tls13] Not resuming
-[2023-07-13T15:45:18Z DEBUG rustls::client::tls13] TLS1.3 encrypted extensions: [ServerNameAck]
-[2023-07-13T15:45:18Z DEBUG rustls::client::hs] ALPN protocol is None
-[2023-07-13T15:45:18Z DEBUG rustls::client::tls13] Got CertificateRequest CertificateRequestPayloadTLS13 { context: , extensions: [SignatureAlgorithms([ECDSA_NISTP384_SHA384, ECDSA_NISTP256_SHA256, ED25519, RSA_PSS_SHA512, RSA_PSS_SHA384, RSA_PSS_SHA256, RSA_PKCS1_SHA512, RSA_PKCS1_SHA384, RSA_PKCS1_SHA256]), AuthorityNames([DistinguishedName(4f584e333063355937376e7a3771423067734949613359306546544366303733505268473832466864626a43686733735a326e675a556a354a475a5639524b7665315934782b5a6c38527047497a2f6d4132663443773d3d)])] }
-[2023-07-13T15:45:18Z DEBUG ratls::cert_resolver] Received challenge OXN30c5Y77nz7qB0gsIIa3Y0eFTCf073PRhG82FhdbjChg3sZ2ngZUj5JGZV9RKve1Y4x+Zl8RpGIz/mA2f4Cw==
-[2023-07-13T15:45:18Z DEBUG rustls::client::common] Attempting client auth
-[2023-07-13T15:45:18Z INFO  client] Work finished, exiting
-```
+The second difference is that, this solution is going to be based on [TLSv1.3](https://www.rfc-editor.org/rfc/rfc8446). In TLSv1.3 all handshake messages after the ServerHello message are encrypted. Thus, the client and server certificates are also encrypted. This protects from eavesdropping confidential information carried in the attestation reports. The ARM CCA attestation token also contains information about firmware versions. An adversary could utilize that information to perform an attack.
