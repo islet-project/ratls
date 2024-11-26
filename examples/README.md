@@ -6,13 +6,23 @@
 ## Run RaTls server
 ```sh
 cd server
-cargo run -- -c cert/server.crt -k cert/server.key -p keys/pkey.jwk
+cargo run -- -c cert/server.crt -k cert/server.key
 ```
 
-## Run RaTls client 
+## Run RaTls client on ARM CCA realm
+```sh
+date 120512002023  # make sure to have somewhat modern date on the realm
+cd client
+cargo run -- -r root-ca.crt -u SERVER_IP:1337
+```
+
+## Run RaTls client on X64 test host
 ```sh
 cd client
 cargo run -- -r root-ca.crt -t token.bin
 ```
 
-__WARNING__: The examples might not work due to [challenge verification](https://github.com/islet-project/ratls/blob/main/ratls/src/cert_verifier.rs#L130).
+__WARNING__: The X64 test host will not work fully due to [challenge
+verification](https://github.com/islet-project/ratls/blob/main/ratls/src/cert_verifier.rs#L130). If
+you need the test to pass disable the challenge verification (branch
+`disable-challenge`).
