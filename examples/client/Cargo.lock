@@ -328,6 +328,7 @@ dependencies = [
  "clap",
  "log",
  "ratls",
+ "rust-rsi",
 ]
 
 [[package]]
