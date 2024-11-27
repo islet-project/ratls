@@ -22,3 +22,7 @@ simple_asn1 = "*"
 x509-certificate = "*"
 rust-rsi = { git = "https://github.com/islet-project/rust-rsi" }
 rustls-webpki = "*"
+
+[features]
+# this feature is for testing purposes only, DO NOT ENABLE otherwise
+disable_challenge = []

@@ -10,3 +10,6 @@ clap = { version = "*", features = ["derive"] }
 log = "*"
 ratls = { path = "../../ratls" }
 # veraison-verifier = { git = "https://github.com/islet-project/veraison-verifier" }
+
+[features]
+disable_challenge = [ "ratls/disable_challenge" ]
