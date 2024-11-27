@@ -24,5 +24,9 @@ cargo run -- -r root-ca.crt -t token.bin
 
 __WARNING__: The X64 test host will not work fully due to [challenge
 verification](https://github.com/islet-project/ratls/blob/main/ratls/src/cert_verifier.rs#L130). If
-you need the test to pass disable the challenge verification (branch
-`disable-challenge`).
+you need the test to pass disable the challenge verification on the server with
+a `disable-challenge` feature:
+
+```
+cargo run --feature disable-challenge -- -c cert/server.crt -k cert/server.key
+```
