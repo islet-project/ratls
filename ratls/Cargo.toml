@@ -12,7 +12,7 @@ env_logger = "*"
 lazy_static = "*"
 log = "*"
 pkcs8 = { version = "*", features = ["alloc"] }
-rand = "*"
+rand = "0.8"
 rcgen = "*"
 rsa = { version = "*", features = ["nightly", "pkcs5"] }
 rustls = { version = "^0.23", default-features = false, features = ["std", "logging", "tls12", "ring"] }
