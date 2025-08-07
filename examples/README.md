@@ -28,5 +28,5 @@ you need the test to pass disable the challenge verification on the server with
 a `disable-challenge` feature:
 
 ```
-cargo run --feature disable-challenge -- -c cert/server.crt -k cert/server.key
+cargo run --features disable-challenge -- -c cert/server.crt -k cert/server.key
 ```
