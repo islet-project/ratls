@@ -128,7 +128,7 @@ impl RaTlsCertVeryfier {
         );
 
         if hash != realm_claims.challenge {
-            error!("Challenge mismatch, expected: {:?} and got {:?}", self.challenge, realm_claims.challenge);
+            error!("Challenge mismatch, expected:\n{:02X?}\nand got:\n{:02X?}", self.challenge, realm_claims.challenge);
             #[cfg(not(feature = "disable-challenge"))]
             return Err(RaTlsError::InvalidChallenge);
         }
