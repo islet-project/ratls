@@ -3,6 +3,8 @@
 * [client](./client) contains a simple RaTls client implementation
 * [server](./server) contains a simple RaTls server implementation
 
+To increase verbosity prepend the commands with `RUST_LOG=debug`
+
 ## Run RaTls server
 ```sh
 cd server
@@ -11,7 +13,7 @@ cargo run -- -c cert/server.crt -k cert/server.key
 
 ## Run RaTls client on ARM CCA realm
 ```sh
-date 120512002023  # make sure to have somewhat modern date on the realm
+date 012812002026  # make sure to have a date within certificate validity scope
 cd client
 cargo run -- -r root-ca.crt -u SERVER_IP:1337
 ```
