@@ -122,6 +122,6 @@ impl Error for RaTlsError {}
 
 impl Display for RaTlsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RaTlsError")
+        write!(f, "{:?}", self)
     }
 }
