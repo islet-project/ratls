@@ -9,8 +9,11 @@ edition = "2021"
 clap = { version = "*", features = ["derive"] }
 log = "*"
 ratls = { path = "../../ratls" }
+serde_json = { version = "*", optional = true }
+realm-verifier = { git = "https://github.com/islet-project/realm-verifier", optional = true }
 veraison-verifier = { git = "https://github.com/islet-project/veraison-verifier", optional = true }
 
 [features]
 disable-challenge = [ "ratls/disable-challenge" ]
+realm = [ "dep:realm-verifier", "dep:serde_json" ]
 veraison = [ "dep:veraison-verifier" ]

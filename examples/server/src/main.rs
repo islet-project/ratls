@@ -6,6 +6,8 @@ use log::info;
 use ratls::{RaTlsServer, ChainVerifier};
 #[cfg(feature = "veraison")]
 use veraison_verifier::VeraisonTokenVerifer;
+#[cfg(feature = "realm")]
+use realm_verifier::{parser_json::parse_value, RealmVerifier};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -36,6 +38,11 @@ struct Args {
     #[cfg(feature = "veraison")]
     #[arg(short = 'r', long)]
     veraison_root_ca: Option<std::path::PathBuf>,
+
+    /// JSON containing realm reference values
+    #[cfg(feature = "realm")]
+    #[arg(short = 'j', long)]
+    reference_json: String,
 }
 
 
@@ -54,10 +61,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         (pubkey, veraison_ca)
     };
 
+    #[cfg(feature = "realm")]
+    let reference_measurements = {
+        let json_reader = std::io::BufReader::new(std::fs::File::open(args.reference_json)?);
+        let mut reference_json: serde_json::Value = serde_json::from_reader(json_reader)?;
+        parse_value(reference_json["realm"]["reference-values"].take())?
+    };
+
     let server = RaTlsServer::new(ratls::ServerMode::AttestedClient {
         client_token_verifier: Arc::new(ChainVerifier::new(vec![
             #[cfg(feature = "veraison")]
             Arc::new(VeraisonTokenVerifer::new(args.veraison_url, pubkey, veraison_ca.as_deref())?),
+            #[cfg(feature = "realm")]
+            Arc::new(RealmVerifier::init(reference_measurements)),
         ])),
         server_certificate_path: args.server_cert,
         server_privatekey_path: args.server_privkey
