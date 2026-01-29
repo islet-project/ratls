@@ -4,7 +4,8 @@ use std::{io::Read, sync::Arc, vec};
 use clap::Parser;
 use log::info;
 use ratls::{RaTlsServer, ChainVerifier};
-// use veraison_verifier::VeraisonTokenVerifer;
+#[cfg(feature = "veraison")]
+use veraison_verifier::VeraisonTokenVerifer;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -21,17 +22,20 @@ struct Args {
     #[arg(short = 'k', long)]
     server_privkey: String,
 
-    // /// Veraison verification service host
-    // #[arg(short = 'v', long, default_value = "https://localhost:8080")]
-    // veraison_url: String,
+    /// Veraison verification service host
+    #[cfg(feature = "veraison")]
+    #[arg(short = 'v', long, default_value = "https://localhost:8080")]
+    veraison_url: String,
 
-    // /// Veraisons public key to verify attestation results
-    // #[arg(short = 'p', long)]
-    // veraison_pubkey: String,
+    /// Veraisons public key to verify attestation results
+    #[cfg(feature = "veraison")]
+    #[arg(short = 'p', long)]
+    veraison_pubkey: String,
 
-    // /// Veraisons root-ca if not provided https cert verification is disabled
-    // #[arg(short = 'r', long)]
-    // veraison_root_ca: Option<PathBuf>
+    /// Veraisons root-ca if not provided https cert verification is disabled
+    #[cfg(feature = "veraison")]
+    #[arg(short = 'r', long)]
+    veraison_root_ca: Option<std::path::PathBuf>,
 }
 
 
@@ -39,15 +43,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ratls::init_logger();
     let args = Args::parse();
 
-    // let mut pubkey = String::new();
-    // let mut file = File::open(args.veraison_pubkey)?;
-    // file.read_to_string(&mut pubkey)?;
+    #[cfg(feature = "veraison")]
+    let (pubkey, veraison_ca) = {
+        let mut pubkey = String::new();
+        let mut file = std::fs::File::open(args.veraison_pubkey)?;
+        file.read_to_string(&mut pubkey)?;
 
-    // let veraison_ca = args.veraison_root_ca.map(|i| fs::read(i)).transpose()?;
+        let veraison_ca = args.veraison_root_ca.map(|i| std::fs::read(i)).transpose()?;
+
+        (pubkey, veraison_ca)
+    };
 
     let server = RaTlsServer::new(ratls::ServerMode::AttestedClient {
         client_token_verifier: Arc::new(ChainVerifier::new(vec![
-            // Arc::new(VeraisonTokenVerifer::new(args.veraison_url, pubkey, veraison_ca.as_deref())?)
+            #[cfg(feature = "veraison")]
+            Arc::new(VeraisonTokenVerifer::new(args.veraison_url, pubkey, veraison_ca.as_deref())?),
         ])),
         server_certificate_path: args.server_cert,
         server_privatekey_path: args.server_privkey

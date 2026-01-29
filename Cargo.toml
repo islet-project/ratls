@@ -6,3 +6,11 @@ members = [
     "examples/client",
     "examples/server",
 ]
+
+# This is required for examples/ that use local ratls but may be
+# dependent on verifiers that want ratls as well but request it from
+# github. This causes two separate ratls version being pulled in
+# creating incompatibilities with traits. Make sure everything uses
+# local ratls instance.
+[patch.'https://github.com/islet-project/ratls']
+ratls = { path = "./ratls" }

@@ -9,7 +9,8 @@ edition = "2021"
 clap = { version = "*", features = ["derive"] }
 log = "*"
 ratls = { path = "../../ratls" }
-# veraison-verifier = { git = "https://github.com/islet-project/veraison-verifier" }
+veraison-verifier = { git = "https://github.com/islet-project/veraison-verifier", optional = true }
 
 [features]
 disable-challenge = [ "ratls/disable-challenge" ]
+veraison = [ "dep:veraison-verifier" ]
