@@ -8,20 +8,20 @@ To increase verbosity prepend the commands with `RUST_LOG=debug`
 ## Run RaTls server
 ```sh
 cd server
-cargo run -- -c cert/server.crt -k cert/server.key
+cargo run -- -c certs/server.crt -k certs/server.key
 ```
 
 ## Run RaTls client on ARM CCA realm
 ```sh
 date 012812002026  # make sure to have a date within certificate validity scope
 cd client
-cargo run -- -r root-ca.crt -u SERVER_IP:1337
+cargo run -- -r certs/root-ca.crt -u SERVER_IP:1337
 ```
 
 ## Run RaTls client on X64 test host
 ```sh
 cd client
-cargo run -- -r root-ca.crt -t token.bin
+cargo run -- -r certs/root-ca.crt -t ratls/token.bin
 ```
 
 __WARNING__: The X64 test host will not work fully due to [challenge
@@ -30,7 +30,7 @@ you need the test to pass disable the challenge verification on the server with
 a `disable-challenge` feature:
 
 ```
-cargo run --features disable-challenge -- -c cert/server.crt -k cert/server.key
+cargo run --features disable-challenge -- -c certs/server.crt -k certs/server.key
 ```
 
 ## Optional features, token verification
@@ -40,7 +40,7 @@ shown above). To fully utilize RA-TLS protocol one can add two additional
 features that verify the tokens' content/values (platform and realm tokens).
 
 ```
-cargo run --features realm,veraison -- -c cert/server.crt -k cert/server.key -p keys/pkey.jwk -j realm/reference.json
+cargo run --features realm,veraison -- -c certs/server.crt -k certs/server.key -p ratls/pkey.jwk -j ratls/example.json
 ```
 
 For this to work though additional steps need to be taken. Veraison service

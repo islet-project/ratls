@@ -12,7 +12,7 @@
         "attestation-protocol": "HTTPS/RA-TLSv1.0",
         "port": 8088,
         "reference-values": {
-            "rim": "fdd82b3e2ef1da0091a3a9ce22549c4258265968d9c6487ea9886664b94a9b61",
+            "rim": "7d77ac01f480798743d60e052dcafa1732d3243ccfd44b0078302b25e681e9e4",
             "rems": [
                 [
                     "0000000000000000000000000000000000000000000000000000000000000000",
