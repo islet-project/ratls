@@ -8,7 +8,9 @@ use tokio_util::io::ReaderStream;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 
-use crate::{GenericResult, files::FilesProvider, files::Payload};
+use crate::GenericResult;
+use crate::files::{FilesProvider, Payload};
+use crate::tls::{self, Config, Protocol};
 
 static NOT_FOUND: (http::StatusCode, &str) = (
     http::StatusCode::NOT_FOUND,
@@ -17,7 +19,7 @@ static NOT_FOUND: (http::StatusCode, &str) = (
 
 type SafeFiles = Arc<RwLock<dyn FilesProvider>>;
 
-pub async fn run<T: FilesProvider + 'static>(files: T) -> GenericResult<()>
+pub async fn run<T: FilesProvider + 'static>(files: T, config: Config) -> GenericResult<()>
 {
     let files = Arc::new(RwLock::new(files));
 
@@ -27,11 +29,15 @@ pub async fn run<T: FilesProvider + 'static>(files: T) -> GenericResult<()>
         .fallback(fallback)
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
 
-    let address = "0.0.0.0:1337";
+    let address = format!("0.0.0.0:{}", config.port);
     debug!("Binding address: {}", address);
     let listener = tokio::net::TcpListener::bind(address).await?;
 
-    axum::serve(listener, app).await?;
+    match config.tls {
+        Protocol::NoTLS => axum::serve(listener, app).await?,
+        Protocol::TLS => tls::serve_tls(listener, app, config).await?,
+        Protocol::RaTLS => tls::serve_ratls(listener, app, config).await?,
+    }
 
     Ok(())
 }

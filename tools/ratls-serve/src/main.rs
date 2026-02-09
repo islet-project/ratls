@@ -1,17 +1,9 @@
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use log::{error, info};
 
 use ratls_serve::SimpleFiles;
 use ratls_serve::httpd_run;
-
-#[derive(ValueEnum, Default, Debug, Clone)]
-pub enum Protocol
-{
-    #[default]
-    NoTLS,
-    TLS,
-    RaTLS,
-}
+use ratls_serve::{TlsConfig, TlsProtocol};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -31,7 +23,7 @@ struct Cli
 
     /// TLS variant to use
     #[arg(short, long, default_value_t, value_enum)]
-    tls: Protocol,
+    tls: TlsProtocol,
 
     /// server port
     #[arg(short, long, default_value_t = 1337)]
@@ -59,9 +51,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
 
     info!("{:#?}", cli);
 
+    let config = TlsConfig {
+        cert: cli.cert,
+        key: cli.key,
+        tls: cli.tls,
+        port: cli.port,
+        veraison_url: cli.veraison_url,
+        veraison_pubkey: cli.veraison_pubkey,
+        reference_json: cli.reference_json,
+    };
+
     let files = SimpleFiles::new(&cli.root);
     info!("Launching the HTTP(S) server");
-    if let Result::Err(e) = httpd_run(files).await {
+    if let Result::Err(e) = httpd_run(files, config).await {
         error!("{}", e);
     }
 

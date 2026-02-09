@@ -5,13 +5,20 @@ edition = "2024"
 
 [dependencies]
 clap = { version = "*", features = [ "derive" ] }
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
 log = "*"
 env_logger = "*"
+futures-util = { version = "*", default-features = false }
+rustls-pemfile = "*"
 tokio = { version = "*", features = [ "full" ] }
 tokio-util = { version = "*", features = [ "io" ] }
+tokio-rustls = "^0.26"
 hyper = { version = "*", features = [ "full" ] }
+hyper-util = "*"
 tower = { version = "*", features = [ "make", "util", "timeout" ] }
 tower-http = { version = "*", features = [ "add-extension", "trace" ] }
+tower-service = "*"
 axum = "*"
 axum-extra = { version = "*", features = [ "typed-header"] }
 async-trait = "*"
