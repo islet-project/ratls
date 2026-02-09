@@ -4,9 +4,18 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-clap = { version = "*", features = ["derive"] }
+clap = { version = "*", features = [ "derive" ] }
 log = "*"
 env_logger = "*"
+tokio = { version = "*", features = [ "full" ] }
+tokio-util = { version = "*", features = [ "io" ] }
+hyper = { version = "*", features = [ "full" ] }
+tower = { version = "*", features = [ "make", "util", "timeout" ] }
+tower-http = { version = "*", features = [ "add-extension", "trace" ] }
+axum = "*"
+axum-extra = { version = "*", features = [ "typed-header"] }
+async-trait = "*"
+mime_guess = "*"
 
 # RA-TLS
 ratls = { git = "https://github.com/islet-project/ratls" }

@@ -1,8 +1,12 @@
 use clap::{Parser, ValueEnum};
-use log::{debug, info};
+use log::{error, info};
+
+use ratls_serve::SimpleFiles;
+use ratls_serve::httpd_run;
 
 #[derive(ValueEnum, Default, Debug, Clone)]
-pub enum Protocol {
+pub enum Protocol
+{
     #[default]
     NoTLS,
     TLS,
@@ -14,7 +18,7 @@ pub enum Protocol {
 struct Cli
 {
     /// runtime server root directory
-    #[arg(short, long, default_value = ".")]
+    #[arg(short, long, default_value = "./root")]
     root: String,
 
     /// path to server certificate
@@ -46,14 +50,20 @@ struct Cli
     reference_json: String,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>>
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>>
 {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("debug"));
 
     let cli = Cli::parse();
 
-    debug!("DEBUG");
     info!("{:#?}", cli);
+
+    let files = SimpleFiles::new(&cli.root);
+    info!("Launching the HTTP(S) server");
+    if let Result::Err(e) = httpd_run(files).await {
+        error!("{}", e);
+    }
 
     Ok(())
 }

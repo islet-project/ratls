@@ -2,7 +2,8 @@ use clap::{Parser, ValueEnum};
 use log::{debug, info};
 
 #[derive(ValueEnum, Default, Debug, Clone)]
-pub enum Protocol {
+pub enum Protocol
+{
     #[default]
     NoTLS,
     TLS,
@@ -18,7 +19,7 @@ struct Cli
     root_ca: String,
 
     /// URL of the file to download, omit the protocol
-    #[arg(short, long, default_value = "localhost:1337/example.txt")]
+    #[arg(short, long, default_value = "localhost:1337/test.txt")]
     url: String,
 
     /// Directory to save the downloaded file
