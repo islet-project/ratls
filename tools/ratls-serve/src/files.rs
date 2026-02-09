@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use log::{debug, error};
+use serde::Serialize;
 use std::{os::unix::fs::MetadataExt, path::Path};
 use tokio::fs;
 
@@ -11,11 +12,19 @@ pub struct Payload
     pub media_type: String,
 }
 
+#[derive(Debug, Default, Serialize)]
+pub struct Listing
+{
+    pub dirs: Vec<String>,
+    pub files: Vec<String>,
+}
+
 #[async_trait]
 pub trait FilesProvider: Send + Sync
 {
     fn get_root(&self) -> &str;
     async fn get_payload(&self, address: &str) -> Option<Payload>;
+    async fn get_listing(&self, address: &str) -> Option<Listing>;
 }
 
 pub struct SimpleFiles
@@ -44,6 +53,12 @@ impl FilesProvider for SimpleFiles
     async fn get_payload(&self, address: &str) -> Option<Payload>
     {
         let path = Path::new(&self.root).join(address);
+
+        if path.is_absolute() {
+            error!("Absolute file paths are forbidden!");
+            return None;
+        }
+
         let filename = match path.file_name() {
             Some(filename) => filename.to_string_lossy().into_owned(),
             None => {
@@ -51,6 +66,11 @@ impl FilesProvider for SimpleFiles
                 return None;
             }
         };
+
+        if !path.is_file() {
+            error!("Path is not a file");
+            return None;
+        }
 
         let file = match fs::File::open(&path).await {
             Ok(file) => file,
@@ -81,5 +101,47 @@ impl FilesProvider for SimpleFiles
         debug!("Payload to serve prepared: {:#?}", payload);
 
         Some(payload)
+    }
+
+    async fn get_listing(&self, address: &str) -> Option<Listing>
+    {
+        let path = Path::new(&self.root).join(address);
+
+        if path.is_absolute() {
+            error!("Absolute file paths are forbidden!");
+            return None;
+        }
+
+        if !path.is_dir() {
+            error!("Path is not a directory");
+            return None;
+        }
+
+        let mut dir_state = match fs::read_dir(&path).await {
+            Ok(dir) => dir,
+            Err(err) => {
+                error!("Error reading directory \"{}\": {}", path.display(), err);
+                return None;
+            }
+        };
+
+        let mut listing = Listing::default();
+        while let Some(dir_entry) = dir_state.next_entry().await.ok()? {
+            let file_name = dir_entry.file_name().to_string_lossy().into_owned();
+            let file_type = match dir_entry.file_type().await {
+                Ok(file_type) => file_type,
+                Err(err) => {
+                    error!("Cannot get file_type of \"{}\": {}", path.display(), err);
+                    return None;
+                }
+            };
+            if file_type.is_dir() {
+                listing.dirs.push(file_name);
+            } else if file_type.is_file() {
+                listing.files.push(file_name);
+            }
+        }
+
+        Some(listing)
     }
 }

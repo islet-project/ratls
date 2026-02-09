@@ -1,4 +1,4 @@
-use axum::{Router, body::Body, extract, http, response::IntoResponse, routing};
+use axum::{Json, Router, body::Body, extract, http, response::IntoResponse, routing};
 use axum_extra::{TypedHeader, headers::Range};
 use hyper::Response;
 use log::{debug, error, info};
@@ -24,7 +24,9 @@ pub async fn run<T: FilesProvider + 'static>(files: T, config: Config) -> Generi
     let files = Arc::new(RwLock::new(files));
 
     let app = Router::new()
-        .route("/{*address}", routing::get(get_file))
+        .route("/", routing::get(get_root_dir))
+        .route("/{:address}/", routing::get(get_address_dir))
+        .route("/{:address}", routing::get(get_file))
         .with_state(files)
         .fallback(fallback)
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
@@ -54,7 +56,7 @@ async fn get_file(
 ) -> impl IntoResponse
 {
     let files = files.read().await;
-    info!("Handling request: {}", address);
+    info!("Handling payload request: {}", address);
 
     let payload = files.get_payload(&address).await;
     let Some(payload) = payload else {
@@ -62,6 +64,32 @@ async fn get_file(
     };
 
     serve_file(payload, range).await
+}
+
+async fn get_root_dir(extract::State(files): extract::State<SafeFiles>) -> impl IntoResponse
+{
+    get_dir(files, String::from("")).await
+}
+
+async fn get_address_dir(
+    extract::State(files): extract::State<SafeFiles>,
+    extract::Path(address): extract::Path<String>,
+) -> impl IntoResponse
+{
+    get_dir(files, address).await
+}
+
+async fn get_dir(files: SafeFiles, address: String) -> impl IntoResponse
+{
+    let files = files.read().await;
+    info!("Handling listing request: \"{}\"", address);
+
+    let listing = files.get_listing(&address).await;
+    let Some(listing) = listing else {
+        return NOT_FOUND.into_response();
+    };
+
+    Json(listing).into_response()
 }
 
 fn range_not_acceptable(payload: Payload) -> Response<Body>
