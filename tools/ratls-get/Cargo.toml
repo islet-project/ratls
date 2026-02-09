@@ -1,0 +1,12 @@
+[package]
+name = "ratls-get"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "*", features = ["derive"] }
+log = "*"
+env_logger = "*"
+
+# RA-TLS
+ratls = { git = "https://github.com/islet-project/ratls" }

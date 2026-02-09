@@ -5,6 +5,8 @@ members = [
     "ratls",
     "examples/client",
     "examples/server",
+	"tools/ratls-get",
+	"tools/ratls-serve",
 ]
 
 # This is required for examples/ that use local ratls but may be
