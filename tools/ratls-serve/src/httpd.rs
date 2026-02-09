@@ -58,9 +58,12 @@ async fn get_file(
     let files = files.read().await;
     info!("Handling payload request: {}", address);
 
-    let payload = files.get_payload(&address).await;
-    let Some(payload) = payload else {
-        return NOT_FOUND.into_response();
+    let payload = match files.get_payload(&address).await {
+        Ok(payload) => payload,
+        Err(err) => {
+            error!("get_payload: {}", err);
+            return NOT_FOUND.into_response();
+        }
     };
 
     serve_file(payload, range).await
@@ -84,9 +87,12 @@ async fn get_dir(files: SafeFiles, address: String) -> impl IntoResponse
     let files = files.read().await;
     info!("Handling listing request: \"{}\"", address);
 
-    let listing = files.get_listing(&address).await;
-    let Some(listing) = listing else {
-        return NOT_FOUND.into_response();
+    let listing = match files.get_listing(&address).await {
+        Ok(listing) => listing,
+        Err(err) => {
+            error!("get_listing: {}", err);
+            return NOT_FOUND.into_response();
+        }
     };
 
     Json(listing).into_response()

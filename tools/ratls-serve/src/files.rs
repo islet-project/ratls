@@ -1,8 +1,10 @@
 use async_trait::async_trait;
-use log::{debug, error};
+use log::debug;
 use serde::Serialize;
 use std::{os::unix::fs::MetadataExt, path::Path};
 use tokio::fs;
+
+use crate::GenericResult;
 
 #[derive(Debug)]
 pub struct Payload
@@ -23,8 +25,8 @@ pub struct Listing
 pub trait FilesProvider: Send + Sync
 {
     fn get_root(&self) -> &str;
-    async fn get_payload(&self, address: &str) -> Option<Payload>;
-    async fn get_listing(&self, address: &str) -> Option<Listing>;
+    async fn get_payload(&self, address: &str) -> GenericResult<Payload>;
+    async fn get_listing(&self, address: &str) -> GenericResult<Listing>;
 }
 
 pub struct SimpleFiles
@@ -50,45 +52,28 @@ impl FilesProvider for SimpleFiles
         &self.root
     }
 
-    async fn get_payload(&self, address: &str) -> Option<Payload>
+    async fn get_payload(&self, address: &str) -> GenericResult<Payload>
     {
         let path = Path::new(&self.root).join(address);
 
         if path.is_absolute() {
-            error!("Absolute file paths are forbidden!");
-            return None;
+            return Err("Absolute file paths are forbidden!".into());
         }
-
-        let filename = match path.file_name() {
-            Some(filename) => filename.to_string_lossy().into_owned(),
-            None => {
-                error!("The address: {} didn't yield a proper filename", address);
-                return None;
-            }
-        };
 
         if !path.is_file() {
-            error!("Path is not a file");
-            return None;
+            return Err("Path is not a file".into());
         }
 
-        let file = match fs::File::open(&path).await {
-            Ok(file) => file,
-            Err(err) => {
-                error!("Error opening \"{}\": {}", path.display(), err);
-                return None;
-            }
-        };
+        let file = fs::File::open(&path)
+            .await
+            .map_err(|err| format!("Error opening \"{}\": {}", path.display(), err))?;
 
-        let metadata = match file.metadata().await {
-            Ok(metadata) => metadata,
-            Err(err) => {
-                error!("Error reading metadata for \"{}\": {}", path.display(), err);
-                return None;
-            }
-        };
+        let metadata = file
+            .metadata()
+            .await
+            .map_err(|err| format!("Error reading metadata for \"{}\": {}", path.display(), err))?;
 
-        let media_type = mime_guess::from_path(filename)
+        let media_type = mime_guess::from_path(path)
             .first_or_octet_stream()
             .to_string();
 
@@ -100,41 +85,31 @@ impl FilesProvider for SimpleFiles
 
         debug!("Payload to serve prepared: {:#?}", payload);
 
-        Some(payload)
+        Ok(payload)
     }
 
-    async fn get_listing(&self, address: &str) -> Option<Listing>
+    async fn get_listing(&self, address: &str) -> GenericResult<Listing>
     {
         let path = Path::new(&self.root).join(address);
 
         if path.is_absolute() {
-            error!("Absolute file paths are forbidden!");
-            return None;
+            return Err("Absolute file paths are forbidden!".into());
         }
 
         if !path.is_dir() {
-            error!("Path is not a directory");
-            return None;
+            return Err("Path is not a directory".into());
         }
 
-        let mut dir_state = match fs::read_dir(&path).await {
-            Ok(dir) => dir,
-            Err(err) => {
-                error!("Error reading directory \"{}\": {}", path.display(), err);
-                return None;
-            }
-        };
+        let mut dir_state = fs::read_dir(&path)
+            .await
+            .map_err(|err| format!("Error reading directory \"{}\": {}", path.display(), err))?;
 
         let mut listing = Listing::default();
-        while let Some(dir_entry) = dir_state.next_entry().await.ok()? {
+        while let Some(dir_entry) = dir_state.next_entry().await? {
             let file_name = dir_entry.file_name().to_string_lossy().into_owned();
-            let file_type = match dir_entry.file_type().await {
-                Ok(file_type) => file_type,
-                Err(err) => {
-                    error!("Cannot get file_type of \"{}\": {}", path.display(), err);
-                    return None;
-                }
-            };
+            let file_type = dir_entry.file_type().await.map_err(|err| {
+                format!("Cannot get file_type of \"{}\": {}", path.display(), err)
+            })?;
             if file_type.is_dir() {
                 listing.dirs.push(file_name);
             } else if file_type.is_file() {
@@ -142,6 +117,8 @@ impl FilesProvider for SimpleFiles
             }
         }
 
-        Some(listing)
+        debug!("Listing to serve prepared: {:#?}", listing);
+
+        Ok(listing)
     }
 }
