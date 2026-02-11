@@ -1,14 +1,9 @@
-use clap::{Parser, ValueEnum};
-use log::{debug, info};
+use std::path::PathBuf;
 
-#[derive(ValueEnum, Default, Debug, Clone)]
-pub enum Protocol
-{
-    #[default]
-    NoTLS,
-    TLS,
-    RaTLS,
-}
+use clap::Parser;
+use log::info;
+
+use ratls_get::{Client, TlsConfig, TlsProtocol};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
@@ -19,7 +14,7 @@ struct Cli
     root_ca: String,
 
     /// URL of the file to download, omit the protocol
-    #[arg(short, long, default_value = "localhost:1337/test.txt")]
+    #[arg(short, long, default_value = "localhost:1337/example.txt")]
     url: String,
 
     /// Directory to save the downloaded file
@@ -28,7 +23,11 @@ struct Cli
 
     /// TLS variant to use
     #[arg(short, long, default_value_t, value_enum)]
-    tls: Protocol,
+    tls: TlsProtocol,
+
+    /// Use dummy token from file (useful for testing)
+    #[arg(short = 'f', long)]
+    token: Option<String>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>>
@@ -37,8 +36,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
 
     let cli = Cli::parse();
 
-    debug!("DEBUG");
     info!("{:#?}", cli);
+
+    let config = TlsConfig {
+        root_ca: cli.root_ca,
+        tls: cli.tls,
+        token: cli.token,
+    };
+
+    let client = Client::from_config(config)?;
+
+    let filename = cli
+        .url
+        .split('/')
+        .last()
+        .ok_or(format!("URL doesn't contain a filename: {}", cli.url))?;
+    let savepath = PathBuf::from(cli.dir).join(filename);
+
+    info!("Downloading: {}", cli.url);
+    let mut response = client.get_file(&cli.url)?;
+    let mut file = std::fs::File::create(&savepath)?;
+    std::io::copy(&mut response, &mut file)?;
+
+    let bytes_saved = file.metadata()?.len();
+    info!(
+        "Downloaded {} bytes, saved as: \"{}\"",
+        bytes_saved,
+        savepath.display()
+    );
 
     Ok(())
 }
