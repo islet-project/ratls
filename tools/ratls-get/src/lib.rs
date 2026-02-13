@@ -3,6 +3,7 @@
 mod client;
 mod tls;
 mod token;
+mod utils;
 
 pub type GenericResult<T> = Result<T, Box<dyn std::error::Error>>;
 

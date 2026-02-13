@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+use tokio_rustls::rustls::crypto::ring::default_provider;
 use tokio_rustls::rustls::pki_types::{CertificateDer, PrivateKeyDer};
 
 use crate::GenericResult;
@@ -27,4 +28,13 @@ where
         1 => Ok(PrivateKeyDer::Pkcs8(keys.remove(0))),
         _ => Err(format!("More than one PKCS8-encoded private key found in {path}").into()),
     }
+}
+
+pub(crate) fn install_default_crypto_provider() -> GenericResult<()>
+{
+    default_provider()
+        .install_default()
+        .map_err(|e| format!("Could not install default crypto provider: {:?}", e))?;
+
+    Ok(())
 }

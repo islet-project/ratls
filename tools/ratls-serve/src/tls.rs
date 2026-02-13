@@ -9,7 +9,6 @@ use std::{fs::File, io::BufReader, sync::Arc};
 use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 use tokio_rustls::rustls::ServerConfig;
-use tokio_rustls::rustls::crypto::ring::default_provider;
 use tower_service::Service;
 #[cfg(not(feature = "disable-challenge-veraison"))]
 use veraison_verifier::VeraisonTokenVerifer;
@@ -39,6 +38,8 @@ pub struct Config
 
 fn tls_server_config(config: Config) -> GenericResult<Arc<ServerConfig>>
 {
+    utils::install_default_crypto_provider()?;
+
     let tls_config = ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(
@@ -51,6 +52,8 @@ fn tls_server_config(config: Config) -> GenericResult<Arc<ServerConfig>>
 
 fn ratls_server_config(config: Config) -> GenericResult<Arc<ServerConfig>>
 {
+    utils::install_default_crypto_provider()?;
+
     let json_reader = BufReader::new(File::open(&config.reference_json)?);
     let mut reference_json: serde_json::Value = serde_json::from_reader(json_reader)?;
     let reference_measurements = parse_value(reference_json["realm"]["reference-values"].take())?;
@@ -85,10 +88,6 @@ pub(crate) async fn serve_tls(
 {
     debug!("Initializing TLS");
 
-    default_provider()
-        .install_default()
-        .expect("Could not install CryptoProvider");
-
     let tls_config = tls_server_config(config)?;
     serve_internal(listener, app, tls_config).await
 }
@@ -100,10 +99,6 @@ pub(crate) async fn serve_ratls(
 ) -> GenericResult<()>
 {
     debug!("Initializing RA-TLS");
-
-    default_provider()
-        .install_default()
-        .expect("Could not install CryptoProvider");
 
     let tls_config = ratls_server_config(config)?;
     serve_internal(listener, app, tls_config).await

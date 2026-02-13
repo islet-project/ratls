@@ -1,9 +1,8 @@
 use ratls::{InternalTokenResolver, RaTlsCertResolver, TokenFromFile, load_root_cert_store};
-use rustls::{crypto::ring::default_provider, ClientConfig};
+use rustls::ClientConfig;
 use std::sync::Arc;
 
-use crate::GenericResult;
-use crate::token::IoctlTokenResolver;
+use crate::{GenericResult, token, utils};
 
 #[derive(clap::ValueEnum, Default, Debug, Clone)]
 pub enum Protocol
@@ -24,9 +23,7 @@ pub struct Config
 
 pub(crate) fn tls_client_config(config: Config) -> GenericResult<ClientConfig>
 {
-    default_provider()
-        .install_default()
-        .expect("Could not install CryptoProvider");
+    utils::install_default_crypto_provider()?;
 
     let root_cert_store = load_root_cert_store(config.root_ca)?;
     let tls_config = ClientConfig::builder()
@@ -38,14 +35,12 @@ pub(crate) fn tls_client_config(config: Config) -> GenericResult<ClientConfig>
 
 pub(crate) fn ratls_client_config(config: Config) -> GenericResult<ClientConfig>
 {
-    default_provider()
-        .install_default()
-        .expect("Could not install CryptoProvider");
+    utils::install_default_crypto_provider()?;
 
     let root_cert_store = load_root_cert_store(config.root_ca)?;
     let token_resolver: Arc<dyn InternalTokenResolver> = match config.token {
         Some(path) => Arc::new(TokenFromFile::from_path(path)?),
-        None => Arc::new(IoctlTokenResolver()),
+        None => Arc::new(token::IoctlTokenResolver()),
     };
     let resolver = Arc::new(RaTlsCertResolver::from_token_resolver(token_resolver)?);
 
