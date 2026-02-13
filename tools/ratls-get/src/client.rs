@@ -1,7 +1,7 @@
-use reqwest::blocking::Client as ReqwestClient;
+use reqwest::blocking::{Client as ReqwestClient, Response};
 
-use crate::GenericResult;
 use crate::tls::{Config, Protocol, ratls_client_config, tls_client_config};
+use crate::{GenericResult, utils};
 
 pub struct Client
 {
@@ -31,10 +31,35 @@ impl Client
         Ok(Self { reqwest, protocol })
     }
 
-    pub fn get_file(&self, address: &str) -> GenericResult<reqwest::blocking::Response>
+    // the response needs to contain length and type, it's an error if it doesn't
+    pub fn get_file(&self, address: &str) -> GenericResult<(Response, String, usize)>
     {
         let url = format!("{}{}", self.protocol, address);
-        let response = self.reqwest.get(&url).send()?;
-        Ok(response)
+
+        match self.reqwest.get(&url).send() {
+            Ok(response) => {
+                if response.status().is_success() {
+                    let headers = response.headers();
+                    let content_type = match utils::content_type(headers) {
+                        Some(ct) => ct,
+                        None => return Err("Response doesn't contain Content-type".into()),
+                    };
+                    let content_length = match utils::content_length(headers) {
+                        Some(cl) => cl,
+                        None => {
+                            return Err("Response doesn't contain Content-length".into());
+                        }
+                    };
+                    Ok((response, content_type, content_length))
+                } else {
+                    return Err(
+                        format!("Response not successful: {}", response.status().as_u16()).into(),
+                    );
+                }
+            }
+            Err(err) => {
+                return Err(format!("Get file request failed: {}", err).into());
+            }
+        }
     }
 }

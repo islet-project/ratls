@@ -54,16 +54,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
     let savepath = PathBuf::from(cli.dir).join(filename);
 
     info!("Downloading: {}", cli.url);
-    let mut response = client.get_file(&cli.url)?;
+    let (mut response, content_type, content_length) = client.get_file(&cli.url)?;
+    info!(
+        "Received response: Content-type: \"{}\"; Content-length: {}",
+        content_type, content_length
+    );
     let mut file = std::fs::File::create(&savepath)?;
     std::io::copy(&mut response, &mut file)?;
 
-    let bytes_saved = file.metadata()?.len();
-    info!(
-        "Downloaded {} bytes, saved as: \"{}\"",
-        bytes_saved,
-        savepath.display()
-    );
+    let bytes_saved = file.metadata()?.len() as usize;
+    drop(file); // close the file
 
-    Ok(())
+    if bytes_saved != content_length {
+        std::fs::remove_file(&savepath)?;
+        Err(format!(
+            "Number of bytes expected ({}) doesn't match bytes saved ({})",
+            content_length, bytes_saved
+        )
+        .into())
+    } else {
+        info!(
+            "Downloaded {} bytes, saved as: \"{}\"",
+            bytes_saved,
+            savepath.display()
+        );
+        Ok(())
+    }
 }
