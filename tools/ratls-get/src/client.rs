@@ -33,7 +33,7 @@ impl Client
     }
 
     // the response needs to contain length and type, it's an error if it doesn't
-    pub fn get_file(&self, address: &str) -> GenericResult<(Response, String, usize)>
+    pub fn get(&self, address: &str) -> GenericResult<(Response, String, usize)>
     {
         let url = format!("{}{}", self.protocol, address);
 

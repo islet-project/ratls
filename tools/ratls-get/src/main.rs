@@ -35,8 +35,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("debug"));
 
     let cli = Cli::parse();
-
     info!("{:#?}", cli);
+
+    if !cli.url.contains('/') {
+        return Err("Address needs to contain a path, at least '/' after hostname".into());
+    }
 
     let config = TlsConfig {
         root_ca: cli.root_ca,
@@ -46,6 +49,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
 
     let client = Client::from_config(config)?;
 
+    info!("Downloading: {}", cli.url);
+    let (mut response, content_type, content_length) = client.get(&cli.url)?;
+    info!(
+        "Received response: Content-type: \"{}\"; Content-length: {}",
+        content_type, content_length
+    );
+
+    // handle listing case
+    if cli.url.ends_with('/') {
+        let dir = response.bytes()?;
+        let dir = String::from_utf8_lossy(&dir);
+        info!("{}", dir);
+        return Ok(());
+    }
+
     let filename = cli
         .url
         .split('/')
@@ -53,17 +71,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
         .ok_or(format!("URL doesn't contain a filename: {}", cli.url))?;
     let savepath = PathBuf::from(cli.dir).join(filename);
 
-    info!("Downloading: {}", cli.url);
-    let (mut response, content_type, content_length) = client.get_file(&cli.url)?;
-    info!(
-        "Received response: Content-type: \"{}\"; Content-length: {}",
-        content_type, content_length
-    );
     let mut file = std::fs::File::create(&savepath)?;
     std::io::copy(&mut response, &mut file)?;
 
     let bytes_saved = file.metadata()?.len() as usize;
-    drop(file); // close the file
+    drop(file); // close the file now in case we remove it below
 
     if bytes_saved != content_length {
         std::fs::remove_file(&savepath)?;
