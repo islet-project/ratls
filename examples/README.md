@@ -13,7 +13,7 @@ cargo run -- -c certs/server.crt -k certs/server.key
 
 ## Run RaTls client on ARM CCA realm
 ```sh
-date 012812002026  # make sure to have a date within certificate validity scope
+date -s "2026-02-13 18:00"  # make sure to have a date within certificate validity scope
 cd client
 cargo run -- -r certs/root-ca.crt -u SERVER_IP:1337
 ```
