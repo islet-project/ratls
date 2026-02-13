@@ -1,3 +1,4 @@
+use log::error;
 use reqwest::blocking::{Client as ReqwestClient, Response};
 
 use crate::tls::{Config, Protocol, ratls_client_config, tls_client_config};
@@ -58,7 +59,8 @@ impl Client
                 }
             }
             Err(err) => {
-                return Err(format!("Get file request failed: {}", err).into());
+                error!("Reqwest request failed: {}", err);
+                return Err(Box::new(err));
             }
         }
     }
