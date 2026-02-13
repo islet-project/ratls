@@ -10,7 +10,7 @@ use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 use tokio_rustls::rustls::ServerConfig;
 use tower_service::Service;
-#[cfg(not(feature = "disable-challenge-veraison"))]
+#[cfg(not(feature = "disable-veraison"))]
 use veraison_verifier::VeraisonTokenVerifer;
 
 use crate::{GenericResult, utils};
@@ -59,7 +59,7 @@ fn ratls_server_config(config: Config) -> GenericResult<Arc<ServerConfig>>
     let reference_measurements = parse_value(reference_json["realm"]["reference-values"].take())?;
 
     let client_token_verifier = Arc::new(ChainVerifier::new(vec![
-        #[cfg(not(feature = "disable-challenge-veraison"))]
+        #[cfg(not(feature = "disable-veraison"))]
         Arc::new(VeraisonTokenVerifer::new(
             &config.veraison_url,
             std::fs::read_to_string(&config.veraison_pubkey)?,
