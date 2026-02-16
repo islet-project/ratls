@@ -7,9 +7,9 @@ use crate::{GenericResult, token, utils};
 #[derive(clap::ValueEnum, Default, Debug, Clone)]
 pub enum Protocol
 {
-    #[default]
     NoTLS,
     TLS,
+    #[default]
     RaTLS,
 }
 
