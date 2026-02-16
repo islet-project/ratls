@@ -2,7 +2,7 @@ use axum::{Router, extract::Request};
 use futures_util::pin_mut;
 use hyper::body::Incoming;
 use hyper_util::rt::{TokioExecutor, TokioIo};
-use log::debug;
+use log::{debug, error, warn};
 use ratls::{ChainVerifier, RaTlsCertVeryfier};
 use realm_verifier::{RealmVerifier, parser_json::parse_value};
 use std::{fs::File, io::BufReader, sync::Arc};
@@ -122,7 +122,7 @@ async fn serve_internal(
 
         tokio::spawn(async move {
             let Ok(stream) = tls_acceptor.accept(cnx).await else {
-                log::error!("error during tls handshake connection from {}", addr);
+                error!("error during tls handshake connection from {}", addr);
                 return;
             };
 
@@ -137,7 +137,7 @@ async fn serve_internal(
                 .await;
 
             if let Err(err) = ret {
-                log::warn!("error serving connection from {}: {}", addr, err);
+                warn!("error serving connection from {}: {}", addr, err);
             }
         });
     }
