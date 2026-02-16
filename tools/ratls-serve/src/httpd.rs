@@ -25,8 +25,7 @@ pub async fn run<T: FilesProvider + 'static>(files: T, config: Config) -> Generi
 
     let app = Router::new()
         .route("/", routing::get(get_root_dir))
-        .route("/{:address}/", routing::get(get_address_dir))
-        .route("/{:address}", routing::get(get_file))
+        .route("/{*address}", routing::get(get_rest))
         .with_state(files)
         .fallback(fallback)
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
@@ -50,8 +49,8 @@ async fn fallback() -> (http::StatusCode, &'static str)
 }
 
 async fn get_file(
-    extract::State(files): extract::State<SafeFiles>,
-    extract::Path(address): extract::Path<String>,
+    files: SafeFiles,
+    address: String,
     range: Option<TypedHeader<Range>>,
 ) -> impl IntoResponse
 {
@@ -71,15 +70,20 @@ async fn get_file(
 
 async fn get_root_dir(extract::State(files): extract::State<SafeFiles>) -> impl IntoResponse
 {
-    get_dir(files, String::from("")).await
+    get_dir(files, String::from("")).await.into_response()
 }
 
-async fn get_address_dir(
+async fn get_rest(
     extract::State(files): extract::State<SafeFiles>,
     extract::Path(address): extract::Path<String>,
+    range: Option<TypedHeader<Range>>,
 ) -> impl IntoResponse
 {
-    get_dir(files, address).await
+    if address.ends_with('/') {
+        get_dir(files, address).await.into_response()
+    } else {
+        get_file(files, address, range).await.into_response()
+    }
 }
 
 async fn get_dir(files: SafeFiles, address: String) -> impl IntoResponse
