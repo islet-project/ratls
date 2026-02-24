@@ -112,8 +112,8 @@ cp ../../target/aarch64-unknown-linux-gnu/release/ratls-get $ISLET/out/shared/bi
 
 Realm (inside `/shared`). It needs to be properly configured (date, network, rsi.ko):
 ```sh
-./bin/ratls-get -r root-ca.crt -u localhost:1337/
-./bin/ratls-get -r root-ca.crt -u localhost:1337/example.txt
-./bin/ratls-get -r root-ca.crt -u localhost:1337/test/
-./bin/ratls-get -r root-ca.crt -u localhost:1337/test/test.txt
+./bin/ratls-get -r root-ca.crt -u 192.168.10.1:1337/
+./bin/ratls-get -r root-ca.crt -u 192.168.10.1:1337/example.txt
+./bin/ratls-get -r root-ca.crt -u 192.168.10.1:1337/test/
+./bin/ratls-get -r root-ca.crt -u 192.168.10.1:1337/test/test.txt
 ```
