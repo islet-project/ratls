@@ -9,6 +9,13 @@ See the help for each tool, as most parameters have default values and files are
 provided in the directory. Both tools will display the config with the
 values they have set (including the ones from defaults) in their logs.
 
+Both tools can run in 3 network modes, first two are provided for testing
+purposes:
+
+- `no-tls`: Plain HTTP (no encryption)
+- `tls`: Standard HTTPS/TLS with certificate verification
+- `ra-tls`: Remote Attestation TLS with token verification (default)
+
 ## Server
 
 The cmd line options with defaults are as follows:
