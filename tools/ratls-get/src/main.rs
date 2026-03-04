@@ -13,7 +13,7 @@ struct Cli
     #[arg(short, long, default_value = "./certs/root-ca.crt")]
     root_ca: String,
 
-    /// URL of the file to download, omit the protocol
+    /// URL of the file to download, protocol can be ommited
     #[arg(short, long, default_value = "localhost:1337/example.txt")]
     url: String,
 

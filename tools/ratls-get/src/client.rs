@@ -1,4 +1,5 @@
 use log::error;
+use reqwest::Url;
 use reqwest::blocking::{Client as ReqwestClient, Response};
 
 use crate::tls::{Config, Protocol, ratls_client_config, tls_client_config};
@@ -15,8 +16,8 @@ impl Client
     pub fn from_config(config: Config) -> GenericResult<Self>
     {
         let protocol = match config.tls {
-            Protocol::NoTLS => "http://",
-            Protocol::TLS | Protocol::RaTLS => "https://",
+            Protocol::NoTLS => "http",
+            Protocol::TLS | Protocol::RaTLS => "https",
         };
 
         let reqwest = match config.tls {
@@ -35,7 +36,23 @@ impl Client
     // the response needs to contain length and type, it's an error if it doesn't
     pub fn get(&self, address: &str) -> GenericResult<(Response, String, usize)>
     {
-        let url = format!("{}{}", self.protocol, address);
+        // manually check if the protocol is already in the address, url doesn't do it
+        let url = if address.contains("://") {
+            let url = Url::parse(address).map_err(|e| format!("Failed to parse URL: {}", e))?;
+            if url.scheme() != self.protocol {
+                return Err(format!(
+                    "Wrong protocol for the TLS type, got: {}, expected: {}",
+                    url.scheme(),
+                    self.protocol
+                )
+                .into());
+            }
+            url.to_string()
+        } else {
+            let url = Url::parse(&format!("{}://{}", self.protocol, address))
+                .map_err(|e| format!("Failed to parse URL: {}", e))?;
+            url.to_string()
+        };
 
         match self.reqwest.get(&url).send() {
             Ok(response) => {
