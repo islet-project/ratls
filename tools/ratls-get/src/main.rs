@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use log::info;
@@ -17,9 +17,9 @@ struct Cli
     #[arg(short, long, default_value = "localhost:1337/example.txt")]
     url: String,
 
-    /// Directory to save the downloaded file
+    /// Output path to save the downloaded file (can be directory or filename)
     #[clap(short, long, default_value = ".")]
-    dir: String,
+    output: String,
 
     /// TLS variant to use
     #[arg(short, long, default_value_t, value_enum)]
@@ -64,13 +64,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
         return Ok(());
     }
 
-    let filename = cli
-        .url
-        .split('/')
-        .last()
-        .ok_or(format!("URL doesn't contain a filename: {}", cli.url))?;
-    let savepath = PathBuf::from(cli.dir).join(filename);
+    let output_path = Path::new(&cli.output);
+    // distinguish a case where output is either a directory or a filepath
+    let savepath = if cli.output.ends_with('/') || output_path.is_dir() {
+        // compose the savepath from an output directory and URL filename
+        let filename = cli
+            .url
+            .split('/')
+            .last()
+            .ok_or(format!("URL doesn't contain a filename: {}", cli.url))?;
+        PathBuf::from(cli.output).join(filename)
+    } else {
+        // it's not a directory, return verbatim
+        output_path.to_path_buf()
+    };
 
+    info!("Saving as: \"{}\"", savepath.display());
     let mut file = std::fs::File::create(&savepath)?;
     std::io::copy(&mut response, &mut file)?;
 
@@ -85,11 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
         )
         .into())
     } else {
-        info!(
-            "Downloaded {} bytes, saved as: \"{}\"",
-            bytes_saved,
-            savepath.display()
-        );
+        info!("Downloaded {} bytes", bytes_saved);
         Ok(())
     }
 }

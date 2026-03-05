@@ -47,7 +47,7 @@ The cmd line options with defaults are as follows:
 
 - `-r, --root-ca <ROOT_CA>:` Root certificate file in PEM format (used with tls and ra-tls) [default: ./certs/root-ca.crt]
 - `-u, --url <URL>`: URL of the file to download, omit the protocol [default: localhost:1337/example.txt]
-- `-d, --dir <DIR>`: Directory to save the downloaded file [default: .]
+- `-o, --output <PATH>`: Output path to save the downloaded file (can be directory or filename)
 - `-t, --tls <TLS>`: TLS variant to use [default: ra-tls] [possible values: no-tls, tls, ra-tls]
 - `-f, --token <TOKEN>`: Use dummy token from file (useful for testing)
 
