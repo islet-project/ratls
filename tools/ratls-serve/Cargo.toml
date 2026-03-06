@@ -32,4 +32,5 @@ veraison-verifier = { git = "https://github.com/islet-project/veraison-verifier"
 [features]
 # this is for testing purposes only, DO NOT ENABLE otherwise
 disable-challenge = [ "ratls/disable-challenge" ]
+disable-realm-verifier = []
 disable-veraison = []

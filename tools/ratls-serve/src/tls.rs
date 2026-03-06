@@ -4,8 +4,11 @@ use hyper::body::Incoming;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use log::{debug, error, warn};
 use ratls::{ChainVerifier, RaTlsCertVeryfier};
+#[cfg(not(feature = "disable-realm-verifier"))]
 use realm_verifier::{RealmVerifier, parser_json::parse_value};
-use std::{fs::File, io::BufReader, sync::Arc};
+use std::sync::Arc;
+#[cfg(not(feature = "disable-realm-verifier"))]
+use std::{fs::File, io::BufReader};
 use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 use tokio_rustls::rustls::ServerConfig;
@@ -54,9 +57,12 @@ fn ratls_server_config(config: Config) -> GenericResult<Arc<ServerConfig>>
 {
     utils::install_default_crypto_provider()?;
 
-    let json_reader = BufReader::new(File::open(&config.reference_json)?);
-    let mut reference_json: serde_json::Value = serde_json::from_reader(json_reader)?;
-    let reference_measurements = parse_value(reference_json["realm"]["reference-values"].take())?;
+    #[cfg(not(feature = "disable-realm-verifier"))]
+    let reference_measurements = {
+        let json_reader = BufReader::new(File::open(&config.reference_json)?);
+        let mut reference_json: serde_json::Value = serde_json::from_reader(json_reader)?;
+        parse_value(reference_json["realm"]["reference-values"].take())?
+    };
 
     let client_token_verifier = Arc::new(ChainVerifier::new(vec![
         #[cfg(not(feature = "disable-veraison"))]
@@ -65,6 +71,7 @@ fn ratls_server_config(config: Config) -> GenericResult<Arc<ServerConfig>>
             std::fs::read_to_string(&config.veraison_pubkey)?,
             None,
         )?),
+        #[cfg(not(feature = "disable-realm-verifier"))]
         Arc::new(RealmVerifier::init(reference_measurements.clone())),
     ]));
 

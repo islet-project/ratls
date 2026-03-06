@@ -38,6 +38,8 @@ enabled in production environment:
   supposed to have a challenge equal to the one that was sent by the server in
   the request. When testing with dummy token this is impossible to achieve so
   this feature disables the check.
+- `disable-realm-verifier`: Disables the Realm verifier altogether. Allows to
+  test without having to worry about RIM/REM values.
 - `disable-veraison`: Disables the Veraison verifier altogether. Allows to test
   without Veraison configured and running.
 
