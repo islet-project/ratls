@@ -1,8 +1,8 @@
-use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::{fs, io};
 
 use clap::Parser;
-use log::info;
+use log::{error, info};
 
 use ratls_get::{Client, TlsConfig, TlsProtocol};
 
@@ -33,6 +33,10 @@ struct Cli
     /// Continue getting a partially downloaded file
     #[arg(short, long = "continue")]
     cont: bool,
+
+    /// Number of retries in case of a timeout
+    #[arg(short = 'n', long, default_value = "3")]
+    retry: u16,
 }
 
 /// Handle simplified listing request case that doesn't save any file
@@ -74,25 +78,53 @@ fn get_save_path(output: &str, url: &str) -> Result<PathBuf, Box<dyn std::error:
 /// Create new file or append to an existing one returning its length
 fn open_file(
     save_path: &Path,
-    cont: bool,
-) -> Result<(File, Option<u64>), Box<dyn std::error::Error>>
+    append: bool,
+) -> Result<(fs::File, Option<u64>), Box<dyn std::error::Error>>
 {
-    if cont && save_path.exists() {
+    if append && save_path.exists() {
         info!("Continuing download as: \"{}\"", save_path.display());
-        let file = File::options().append(true).open(&save_path)?;
+        let file = fs::File::options().append(true).open(&save_path)?;
         let length = file.metadata()?.len();
         Ok((file, Some(length)))
     } else {
         info!("Saving as: \"{}\"", save_path.display());
-        Ok((File::create(save_path)?, None))
+        Ok((fs::File::create(save_path)?, None))
     }
+}
+
+/// Check the error and all possible inner errors for timeout.
+///
+/// The most often case is a custom io_err (returned from io::copy) that embeds
+/// reqwest_err that embeds hyper_err that is a timeout (but it's not the only
+/// possibility), hence such a deep check is actually required.
+fn err_is_timeout(err: &(dyn std::error::Error + 'static)) -> bool
+{
+    // first check the error itself before we go deeper
+    let mut source = Some(err);
+
+    while let Some(err) = source {
+        if let Some(reqwest_err) = err.downcast_ref::<reqwest::Error>() {
+            // this function checks all inner reqwest/hyper/io errors
+            if reqwest_err.is_timeout() {
+                return true;
+            }
+        }
+        if let Some(io_err) = err.downcast_ref::<io::Error>() {
+            if io_err.kind() == io::ErrorKind::TimedOut {
+                return true;
+            }
+        }
+        source = err.source();
+    }
+
+    false
 }
 
 /// Actually perform the HTTP request and download the file
 fn download_file(
     client: &Client,
     url: &str,
-    file: &mut File,
+    file: &mut fs::File,
     skip: Option<u64>,
 ) -> Result<u64, Box<dyn std::error::Error>>
 {
@@ -102,6 +134,7 @@ fn download_file(
         "Received response: Content-type: \"{}\"; Content-length: {}",
         content_type, content_length
     );
+
     std::io::copy(&mut response, file)?;
 
     Ok(content_length as u64)
@@ -131,13 +164,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
         return get_listing(&client, &cli.url);
     }
 
+    // values to be used in a loop below
     let save_path = get_save_path(&cli.output, &cli.url)?;
-    let (mut file, length) = open_file(&save_path, cli.cont)?;
-    let content_length = download_file(&client, &cli.url, &mut file, length)?;
+    let mut append = cli.cont;
+    let mut tries_left = cli.retry;
 
-    let skipped = length.unwrap_or(0);
-    let bytes_saved = file.metadata()?.len() - skipped;
-    drop(file); // close the file now in case we remove it below
+    let (content_length, bytes_saved) = loop {
+        let (mut file, length) = open_file(&save_path, append)?;
+        let content_length = match download_file(&client, &cli.url, &mut file, length) {
+            Ok(content_len) => content_len,
+            Err(e) => {
+                if tries_left > 0 && err_is_timeout(e.as_ref()) {
+                    info!("Download timed out, {} tries left...", tries_left);
+                    append = true;
+                    tries_left = tries_left - 1;
+                    continue;
+                } else {
+                    error!("Failed to download: {:#?}", e);
+                    Err(e)?
+                }
+            }
+        };
+
+        let skipped = length.unwrap_or(0);
+        let bytes_saved = file.metadata()?.len() - skipped;
+
+        break (content_length, bytes_saved);
+    };
 
     if bytes_saved != content_length {
         std::fs::remove_file(&save_path)?;
