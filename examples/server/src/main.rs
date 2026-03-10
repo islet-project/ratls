@@ -79,18 +79,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         server_privatekey_path: args.server_privkey
     })?;
 
-    for connection in server.connections(args.server_bind_address)? {
-        if let Ok(mut conn) = connection {
-            info!("New connection accepted");
-            let mut buf = Vec::new();
-            buf.resize(0x100, 0u8);
+    for mut conn in server.connections(args.server_bind_address)?.flatten() {
+        info!("New connection accepted");
+        let mut buf = vec![0; 0x100];
 
-            while let Ok(len) = conn.stream().read(&mut buf) {
-                info!("Message from client: {:?}", String::from_utf8(buf[0..len].to_vec())?);
-            }
-
-            info!("Connection closed");
+        while let Ok(len) = conn.stream().read(&mut buf) {
+            info!("Message from client: {:?}", String::from_utf8(buf[0..len].to_vec())?);
         }
+
+        info!("Connection closed");
     }
 
     Ok(())

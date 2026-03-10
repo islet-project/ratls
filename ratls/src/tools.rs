@@ -11,11 +11,11 @@ pub(crate) fn load_certificates_from_pem(path: &str) -> std::io::Result<Vec<Cert
     let file = File::open(path)?;
     let mut reader = BufReader::new(file);
 
-    rustls_pemfile::certs(&mut reader).into_iter().collect()
+    rustls_pemfile::certs(&mut reader).collect()
 }
 
 pub(crate) fn load_private_key_from_file(path: &str) -> Result<PrivateKeyDer<'static>, RaTlsError> {
-    let file = File::open(&path)?;
+    let file = File::open(path)?;
     let mut reader = BufReader::new(file);
 
     let private_key = rustls_pemfile::private_key(&mut reader)?;

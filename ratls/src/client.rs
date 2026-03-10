@@ -49,8 +49,8 @@ impl RaTlsClient {
                     .dangerous()
                     .with_custom_certificate_verifier(Arc::new(verifier))
                     .with_client_auth_cert(
-                        load_certificates_from_pem(&client_certificate_path)?,
-                        load_private_key_from_file(&client_privatekey_path)?
+                        load_certificates_from_pem(client_certificate_path)?,
+                        load_private_key_from_file(client_privatekey_path)?
                     )?,
                     Some(chall)
                 ))
@@ -85,8 +85,7 @@ impl RaTlsClient {
         let mut stream = conn.stream();
         let msg = "HELO";
 
-        let mut resp = Vec::new();
-        resp.resize(msg.len(), 0u8);
+        let mut resp = vec![0; msg.len()];
         stream.read_exact(&mut resp)?;
 
         stream.write_all(msg.as_bytes())?;

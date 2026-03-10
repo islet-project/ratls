@@ -109,7 +109,7 @@ impl RaTlsCertVeryfier {
     fn fetch_token<'a>(&self, cert: &'a X509Certificate) -> Result<&'a [u8], RaTlsError> {
         for ext in cert.iter_extensions() {
             if ext.id.0.as_ref() == CCA_TOKEN_X509_EXT.as_raw()?.as_slice() {
-                return Ok(ext.value.as_slice().ok_or(RaTlsError::CannotExtractTokenFromExtension)?);
+                return ext.value.as_slice().ok_or(RaTlsError::CannotExtractTokenFromExtension);
             }
         }
         error!("Token is missing in certificate");
@@ -117,10 +117,10 @@ impl RaTlsCertVeryfier {
     }
 
     fn verify_cert(&self, cert_der: &CertificateDer) -> Result<(), RaTlsError> {
-        let cert = X509Certificate::from_der(cert_der.to_vec())?;
+        let cert = X509Certificate::from_der(cert_der)?;
         let pubkey = cert.to_public_key_der()?;
         let raw_token = self.fetch_token(&cert)?;
-        let token = verify_token(raw_token, None).map_err(|e| {error!("Token verification failed"); e})?;
+        let token = verify_token(raw_token, None).inspect_err(|_| {error!("Token verification failed")})?;
         let realm_claims = RealmClaims::from_raw_claims(&token.realm_claims.token_claims, &token.realm_claims.measurement_claims)?;
         let hash = hash_realm_challenge(
             self.challenge.as_slice(),
@@ -136,7 +136,7 @@ impl RaTlsCertVeryfier {
         info!("Received client CCA token:");
         print_token(&token);
 
-        self.token_verifier.verify(raw_token).map_err(|e|{error!("Token verification failed"); e})
+        self.token_verifier.verify(raw_token).inspect_err(|_| {error!("Token verification failed");})
     }
 }
 

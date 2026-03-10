@@ -47,8 +47,7 @@ impl RaTlsConnectionsIterator {
         stream.write_all(msg.as_bytes())?;
         stream.flush()?;
 
-        let mut resp = Vec::new();
-        resp.resize(msg.len(), 0u8);
+        let mut resp = vec![0; msg.len()];
         stream.read_exact(&mut resp)?;
 
         if resp.as_slice() == msg.as_bytes() {
@@ -83,8 +82,8 @@ impl RaTlsServer {
                 Ok(ServerConfig::builder()
                     .with_client_cert_verifier(Arc::new(RaTlsCertVeryfier::from_token_verifier(client_token_verifier.clone())))
                     .with_single_cert(
-                        load_certificates_from_pem(&server_certificate_path)?,
-                        load_private_key_from_file(&server_privatekey_path)?
+                        load_certificates_from_pem(server_certificate_path)?,
+                        load_private_key_from_file(server_privatekey_path)?
                     )?
                 )
             },
