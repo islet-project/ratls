@@ -7,6 +7,7 @@ edition = "2024"
 clap = { version = "*", features = ["derive"] }
 log = "*"
 env_logger = "*"
+serde_json = "*"
 
 ### DO NOT MODIFY (unless you know what you are doing) ###
 # Reqwest client provides API to pass custom rustls::ClientConfig through "impl Any".

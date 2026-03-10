@@ -40,7 +40,7 @@ struct Cli
 }
 
 /// Handle simplified listing request case that doesn't save any file
-fn get_listing(client: &Client, url: &str) -> Result<(), Box<dyn std::error::Error>>
+fn list_dir(client: &Client, url: &str) -> Result<(), Box<dyn std::error::Error>>
 {
     info!("Getting listing: {}", url);
     let (response, content_type, content_length) = client.get(url, None)?;
@@ -49,9 +49,8 @@ fn get_listing(client: &Client, url: &str) -> Result<(), Box<dyn std::error::Err
         content_type, content_length
     );
 
-    let listing = response.bytes()?;
-    let listing = String::from_utf8_lossy(&listing);
-    info!("{}", listing);
+    let listing: serde_json::Value = response.json()?;
+    info!("{}", serde_json::to_string_pretty(&listing)?);
 
     Ok(())
 }
@@ -161,7 +160,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
 
     // handle listing case
     if cli.url.ends_with('/') {
-        return get_listing(&client, &cli.url);
+        return list_dir(&client, &cli.url);
     }
 
     // values to be used in a loop below
