@@ -35,6 +35,7 @@ struct Cli
     cont: bool,
 }
 
+/// Handle simplified listing request case that doesn't save any file
 fn get_listing(client: &Client, url: &str) -> Result<(), Box<dyn std::error::Error>>
 {
     info!("Getting listing: {}", url);
@@ -49,6 +50,61 @@ fn get_listing(client: &Client, url: &str) -> Result<(), Box<dyn std::error::Err
     info!("{}", listing);
 
     Ok(())
+}
+
+/// Figure out a final path to the file to save including its filename
+fn get_save_path(output: &str, url: &str) -> Result<PathBuf, Box<dyn std::error::Error>>
+{
+    let output_path = Path::new(&output);
+
+    // distinguish a case where output is either a directory or a filepath
+    if output.ends_with('/') || output_path.is_dir() {
+        // compose the savepath from an output directory and URL filename
+        let filename = url
+            .split('/')
+            .next_back()
+            .ok_or(format!("URL doesn't contain a filename: {}", url))?;
+        Ok(output_path.join(filename))
+    } else {
+        // it's not a directory, return verbatim
+        Ok(output_path.to_path_buf())
+    }
+}
+
+/// Create new file or append to an existing one returning its length
+fn open_file(
+    save_path: &Path,
+    cont: bool,
+) -> Result<(File, Option<u64>), Box<dyn std::error::Error>>
+{
+    if cont && save_path.exists() {
+        info!("Continuing download as: \"{}\"", save_path.display());
+        let file = File::options().append(true).open(&save_path)?;
+        let length = file.metadata()?.len();
+        Ok((file, Some(length)))
+    } else {
+        info!("Saving as: \"{}\"", save_path.display());
+        Ok((File::create(save_path)?, None))
+    }
+}
+
+/// Actually perform the HTTP request and download the file
+fn download_file(
+    client: &Client,
+    url: &str,
+    file: &mut File,
+    skip: Option<u64>,
+) -> Result<u64, Box<dyn std::error::Error>>
+{
+    info!("Downloading: {}; Skipping: {:?}", url, skip);
+    let (mut response, content_type, content_length) = client.get(url, skip)?;
+    info!(
+        "Received response: Content-type: \"{}\"; Content-length: {}",
+        content_type, content_length
+    );
+    std::io::copy(&mut response, file)?;
+
+    Ok(content_length as u64)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>>
@@ -75,45 +131,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
         return get_listing(&client, &cli.url);
     }
 
-    let output_path = Path::new(&cli.output);
-    // distinguish a case where output is either a directory or a filepath
-    let savepath = if cli.output.ends_with('/') || output_path.is_dir() {
-        // compose the savepath from an output directory and URL filename
-        let filename = cli
-            .url
-            .split('/')
-            .next_back()
-            .ok_or(format!("URL doesn't contain a filename: {}", cli.url))?;
-        PathBuf::from(cli.output).join(filename)
-    } else {
-        // it's not a directory, return verbatim
-        output_path.to_path_buf()
-    };
-
-    let (mut file, length) = if cli.cont && savepath.exists() {
-        info!("Continuing download as: \"{}\"", savepath.display());
-        let file = File::options().append(true).open(&savepath)?;
-        let length = file.metadata()?.len();
-        (file, Some(length))
-    } else {
-        info!("Saving as: \"{}\"", savepath.display());
-        (File::create(&savepath)?, None)
-    };
-
-    info!("Downloading: {}", cli.url);
-    let (mut response, content_type, content_length) = client.get(&cli.url, length)?;
-    info!(
-        "Received response: Content-type: \"{}\"; Content-length: {}",
-        content_type, content_length
-    );
-    std::io::copy(&mut response, &mut file)?;
+    let save_path = get_save_path(&cli.output, &cli.url)?;
+    let (mut file, length) = open_file(&save_path, cli.cont)?;
+    let content_length = download_file(&client, &cli.url, &mut file, length)?;
 
     let skipped = length.unwrap_or(0);
     let bytes_saved = file.metadata()?.len() - skipped;
     drop(file); // close the file now in case we remove it below
 
-    if bytes_saved as usize != content_length {
-        std::fs::remove_file(&savepath)?;
+    if bytes_saved != content_length {
+        std::fs::remove_file(&save_path)?;
         Err(format!(
             "Number of bytes expected ({}) doesn't match bytes saved ({})",
             content_length, bytes_saved
