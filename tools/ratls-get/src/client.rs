@@ -1,6 +1,6 @@
 use log::error;
-use reqwest::Url;
 use reqwest::blocking::{Client as ReqwestClient, Response};
+use reqwest::{Url, header};
 
 use crate::tls::{Config, Protocol, ratls_client_config, tls_client_config};
 use crate::{GenericResult, utils};
@@ -34,7 +34,8 @@ impl Client
     }
 
     // the response needs to contain length and type, it's an error if it doesn't
-    pub fn get(&self, address: &str) -> GenericResult<(Response, String, usize)>
+    pub fn get(&self, address: &str, skip: Option<u64>)
+    -> GenericResult<(Response, String, usize)>
     {
         // manually check if the protocol is already in the address, url doesn't do it
         let url = if address.contains("://") {
@@ -54,7 +55,14 @@ impl Client
             url.to_string()
         };
 
-        match self.reqwest.get(&url).send() {
+        let request = self.reqwest.get(&url);
+        let request = if let Some(skip_bytes) = skip {
+            request.header(header::RANGE, format!("bytes={}-", skip_bytes))
+        } else {
+            request
+        };
+
+        match request.send() {
             Ok(response) => {
                 if response.status().is_success() {
                     let headers = response.headers();

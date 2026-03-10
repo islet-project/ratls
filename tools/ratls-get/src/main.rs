@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
@@ -28,6 +29,26 @@ struct Cli
     /// Use dummy token from file (useful for testing)
     #[arg(short = 'f', long)]
     token: Option<String>,
+
+    /// Continue getting a partially downloaded file
+    #[arg(short, long = "continue")]
+    cont: bool,
+}
+
+fn get_listing(client: &Client, url: &str) -> Result<(), Box<dyn std::error::Error>>
+{
+    info!("Getting listing: {}", url);
+    let (response, content_type, content_length) = client.get(url, None)?;
+    info!(
+        "Received response: Content-type: \"{}\"; Content-length: {}",
+        content_type, content_length
+    );
+
+    let listing = response.bytes()?;
+    let listing = String::from_utf8_lossy(&listing);
+    info!("{}", listing);
+
+    Ok(())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>>
@@ -49,19 +70,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
 
     let client = Client::from_config(config)?;
 
-    info!("Downloading: {}", cli.url);
-    let (mut response, content_type, content_length) = client.get(&cli.url)?;
-    info!(
-        "Received response: Content-type: \"{}\"; Content-length: {}",
-        content_type, content_length
-    );
-
     // handle listing case
     if cli.url.ends_with('/') {
-        let dir = response.bytes()?;
-        let dir = String::from_utf8_lossy(&dir);
-        info!("{}", dir);
-        return Ok(());
+        return get_listing(&client, &cli.url);
     }
 
     let output_path = Path::new(&cli.output);
@@ -79,14 +90,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
         output_path.to_path_buf()
     };
 
-    info!("Saving as: \"{}\"", savepath.display());
-    let mut file = std::fs::File::create(&savepath)?;
+    let (mut file, length) = if cli.cont && savepath.exists() {
+        info!("Continuing download as: \"{}\"", savepath.display());
+        let file = File::options().write(true).append(true).open(&savepath)?;
+        let length = file.metadata()?.len();
+        (file, Some(length))
+    } else {
+        info!("Saving as: \"{}\"", savepath.display());
+        (File::create(&savepath)?, None)
+    };
+
+    info!("Downloading: {}", cli.url);
+    let (mut response, content_type, content_length) = client.get(&cli.url, length)?;
+    info!(
+        "Received response: Content-type: \"{}\"; Content-length: {}",
+        content_type, content_length
+    );
     std::io::copy(&mut response, &mut file)?;
 
-    let bytes_saved = file.metadata()?.len() as usize;
+    let skipped = length.unwrap_or(0);
+    let bytes_saved = file.metadata()?.len() - skipped;
     drop(file); // close the file now in case we remove it below
 
-    if bytes_saved != content_length {
+    if bytes_saved as usize != content_length {
         std::fs::remove_file(&savepath)?;
         Err(format!(
             "Number of bytes expected ({}) doesn't match bytes saved ({})",
