@@ -1,3 +1,4 @@
+use log::error;
 use ratls::{InternalTokenResolver, RaTlsCertResolver, TokenFromFile, load_root_cert_store};
 use rustls::ClientConfig;
 use std::sync::Arc;
@@ -26,7 +27,7 @@ pub(crate) fn tls_client_config(config: Config) -> GenericResult<ClientConfig>
     utils::install_default_crypto_provider()?;
 
     let root_cert_store = load_root_cert_store(&config.root_ca)
-        .map_err(|e| format!("Failed to load root-ca \"{}\": {}", config.root_ca, e))?;
+        .inspect_err(|_| error!("Failed to load root-ca: {}", config.root_ca))?;
     let tls_config = ClientConfig::builder()
         .with_root_certificates(root_cert_store)
         .with_no_client_auth();
@@ -39,11 +40,11 @@ pub(crate) fn ratls_client_config(config: Config) -> GenericResult<ClientConfig>
     utils::install_default_crypto_provider()?;
 
     let root_cert_store = load_root_cert_store(&config.root_ca)
-        .map_err(|e| format!("Failed to load root-ca \"{}\": {}", config.root_ca, e))?;
+        .inspect_err(|_| error!("Failed to load root-ca: {}", config.root_ca))?;
     let token_resolver: Arc<dyn InternalTokenResolver> = match config.token {
         Some(path) => Arc::new(
             TokenFromFile::from_path(&path)
-                .map_err(|e| format!("Failed to load token: \"{}\": {}", path, e))?,
+                .inspect_err(|_| error!("Failed to load token: {}", path))?,
         ),
         None => Arc::new(token::IoctlTokenResolver()),
     };

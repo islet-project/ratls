@@ -44,13 +44,10 @@ impl RaTlsCertResolver {
                 .as_bytes()
         );
 
-        let token = match self.token_resolver.resolve(&realm_challenge) {
-            Err(e) => {
-                error!("Failed to acquire token from the token_resolver: {}", e);
-                return Err(e);
-            },
-            Ok(token) => token,
-        };
+        let token = self
+            .token_resolver
+            .resolve(&realm_challenge)
+            .inspect_err(|_| error!("Failed to acquire token from the token_resolver"))?;
         let pkcs8_privkey = self.private_key.to_pkcs8_der()?;
         // We are decoding DER created by RustCrypto,
         // this has no right to fail.

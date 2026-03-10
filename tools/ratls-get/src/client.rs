@@ -69,7 +69,8 @@ impl Client
     {
         // manually check if the protocol is already in the address, url doesn't do it
         let url = if address.contains("://") {
-            let url = Url::parse(address).map_err(|e| format!("Failed to parse URL: {}", e))?;
+            let url =
+                Url::parse(address).inspect_err(|_| error!("Failed to parse URL: {}", address))?;
             if url.scheme() != self.protocol {
                 return Err(format!(
                     "Wrong protocol for the TLS type, got: {}, expected: {}",
@@ -80,8 +81,9 @@ impl Client
             }
             url.to_string()
         } else {
-            let url = Url::parse(&format!("{}://{}", self.protocol, address))
-                .map_err(|e| format!("Failed to parse URL: {}", e))?;
+            let url_string = &format!("{}://{}", self.protocol, address);
+            let url = Url::parse(&url_string)
+                .inspect_err(|_| error!("Failed to parse URL: {}", url_string))?;
             url.to_string()
         };
 
@@ -102,9 +104,7 @@ impl Client
                     };
                     let content_length = match utils::content_length(headers) {
                         Some(cl) => cl,
-                        None => {
-                            return Err("Response doesn't contain Content-length".into());
-                        }
+                        None => return Err("Response doesn't contain Content-length".into()),
                     };
                     Ok((response, content_type, content_length))
                 } else {
