@@ -1,6 +1,7 @@
-use log::error;
+use log::{debug, error};
 use reqwest::blocking::{Client as ReqwestClient, Response};
 use reqwest::{Url, header};
+use std::fs;
 
 use crate::tls::{Config, Protocol, ratls_client_config, tls_client_config};
 use crate::{GenericResult, utils};
@@ -33,9 +34,38 @@ impl Client
         Ok(Self { reqwest, protocol })
     }
 
+    /// Handle simplified listing request case that doesn't save any file
+    pub fn list_dir(&self, url: &str) -> Result<serde_json::Value, Box<dyn std::error::Error>>
+    {
+        let (response, content_type, content_length) = self.get(url, None)?;
+        debug!(
+            "Received response: Content-type: \"{}\"; Content-length: {}",
+            content_type, content_length
+        );
+
+        Ok(response.json()?)
+    }
+
+    /// Actually perform the HTTP request and download the file
+    pub fn download_file(
+        &self,
+        url: &str,
+        file: &mut fs::File,
+        skip: Option<u64>,
+    ) -> Result<u64, Box<dyn std::error::Error>>
+    {
+        let (mut response, content_type, content_length) = self.get(url, skip)?;
+        debug!(
+            "Received response: Content-type: \"{}\"; Content-length: {}",
+            content_type, content_length
+        );
+
+        std::io::copy(&mut response, file)?;
+        Ok(content_length as u64)
+    }
+
     // the response needs to contain length and type, it's an error if it doesn't
-    pub fn get(&self, address: &str, skip: Option<u64>)
-    -> GenericResult<(Response, String, usize)>
+    fn get(&self, address: &str, skip: Option<u64>) -> GenericResult<(Response, String, usize)>
     {
         // manually check if the protocol is already in the address, url doesn't do it
         let url = if address.contains("://") {

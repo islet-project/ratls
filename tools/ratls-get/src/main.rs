@@ -39,22 +39,6 @@ struct Cli
     retry: u16,
 }
 
-/// Handle simplified listing request case that doesn't save any file
-fn list_dir(client: &Client, url: &str) -> Result<(), Box<dyn std::error::Error>>
-{
-    info!("Getting listing: {}", url);
-    let (response, content_type, content_length) = client.get(url, None)?;
-    info!(
-        "Received response: Content-type: \"{}\"; Content-length: {}",
-        content_type, content_length
-    );
-
-    let listing: serde_json::Value = response.json()?;
-    info!("{}", serde_json::to_string_pretty(&listing)?);
-
-    Ok(())
-}
-
 /// Figure out a final path to the file to save including its filename
 fn get_save_path(output: &str, url: &str) -> Result<PathBuf, Box<dyn std::error::Error>>
 {
@@ -119,26 +103,6 @@ fn err_is_timeout(err: &(dyn std::error::Error + 'static)) -> bool
     false
 }
 
-/// Actually perform the HTTP request and download the file
-fn download_file(
-    client: &Client,
-    url: &str,
-    file: &mut fs::File,
-    skip: Option<u64>,
-) -> Result<u64, Box<dyn std::error::Error>>
-{
-    info!("Downloading: {}; Skipping: {:?}", url, skip);
-    let (mut response, content_type, content_length) = client.get(url, skip)?;
-    info!(
-        "Received response: Content-type: \"{}\"; Content-length: {}",
-        content_type, content_length
-    );
-
-    std::io::copy(&mut response, file)?;
-
-    Ok(content_length as u64)
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>>
 {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("debug"));
@@ -160,7 +124,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
 
     // handle listing case
     if cli.url.ends_with('/') {
-        return list_dir(&client, &cli.url);
+        info!("Getting listing: {}", cli.url);
+        let listing = client.list_dir(&cli.url)?;
+        info!("{}", serde_json::to_string_pretty(&listing)?);
+        return Ok(());
     }
 
     // values to be used in a loop below
@@ -170,7 +137,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
 
     let (content_length, bytes_saved) = loop {
         let (mut file, length) = open_file(&save_path, append)?;
-        let content_length = match download_file(&client, &cli.url, &mut file, length) {
+        info!("Downloading: {}; Skipping: {:?}", cli.url, length);
+        let content_length = match client.download_file(&cli.url, &mut file, length) {
             Ok(content_len) => content_len,
             Err(e) => {
                 if tries_left > 0 && err_is_timeout(e.as_ref()) {
