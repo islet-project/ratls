@@ -78,14 +78,12 @@ impl Client
                     };
                     Ok((response, content_type, content_length))
                 } else {
-                    return Err(
-                        format!("Response not successful: {}", response.status().as_u16()).into(),
-                    );
+                    Err(format!("Response not successful: {}", response.status().as_u16()).into())
                 }
             }
             Err(err) => {
                 error!("Reqwest request failed: {}", err);
-                return Err(Box::new(err));
+                Err(Box::new(err))
             }
         }
     }

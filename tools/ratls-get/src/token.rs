@@ -17,7 +17,7 @@ impl InternalTokenResolver for IoctlTokenResolver
         match rust_rsi::attestation_token(&challenge.try_into().unwrap()) {
             Err(e) => {
                 error!("Failed to acquire token from rust_rsi: {}", e);
-                return Err(RaTlsError::GenericTokenResolverError(Box::new(e)));
+                Err(RaTlsError::GenericTokenResolverError(Box::new(e)))
             }
             Ok(v) => Ok(v),
         }

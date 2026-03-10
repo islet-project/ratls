@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
         let filename = cli
             .url
             .split('/')
-            .last()
+            .next_back()
             .ok_or(format!("URL doesn't contain a filename: {}", cli.url))?;
         PathBuf::from(cli.output).join(filename)
     } else {
@@ -92,7 +92,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
 
     let (mut file, length) = if cli.cont && savepath.exists() {
         info!("Continuing download as: \"{}\"", savepath.display());
-        let file = File::options().write(true).append(true).open(&savepath)?;
+        let file = File::options().append(true).open(&savepath)?;
         let length = file.metadata()?.len();
         (file, Some(length))
     } else {
