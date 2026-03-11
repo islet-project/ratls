@@ -52,6 +52,8 @@ The cmd line options with defaults are as follows:
 - `-o, --output <PATH>`: Output path to save the downloaded file (can be directory or filename)
 - `-t, --tls <TLS>`: TLS variant to use [default: ra-tls] [possible values: no-tls, tls, ra-tls]
 - `-f, --token <TOKEN>`: Use dummy token from file (useful for testing)
+- `-c, --continue`: Continue getting a partially downloaded file
+- `-n, --retry <RETRY>`: Number of retries in case of a timeout [default: 3]
 
 If the address/url to get ends with `/` (e.g. `192.168.10.1:1337/` or
 `192.168.10.1:1337/test/`) directory listing will be returned as simple JSON and
