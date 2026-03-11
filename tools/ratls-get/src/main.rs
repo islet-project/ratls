@@ -4,7 +4,7 @@ use std::{fs, io};
 use clap::Parser;
 use log::{error, info};
 
-use ratls_get::{Client, TlsConfig, TlsProtocol};
+use ratls_get::{Client, GenericResult, TlsConfig, TlsProtocol};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
@@ -40,7 +40,7 @@ struct Cli
 }
 
 /// Figure out a final path to the file to save including its filename
-fn get_save_path(output: &str, url: &str) -> Result<PathBuf, Box<dyn std::error::Error>>
+fn get_save_path(output: &str, url: &str) -> GenericResult<PathBuf>
 {
     let output_path = Path::new(&output);
 
@@ -59,10 +59,7 @@ fn get_save_path(output: &str, url: &str) -> Result<PathBuf, Box<dyn std::error:
 }
 
 /// Create new file or append to an existing one returning its length
-fn open_file(
-    save_path: &Path,
-    append: bool,
-) -> Result<(fs::File, Option<u64>), Box<dyn std::error::Error>>
+fn open_file(save_path: &Path, append: bool) -> GenericResult<(fs::File, Option<u64>)>
 {
     if append && save_path.exists() {
         info!("Continuing download as: \"{}\"", save_path.display());
@@ -103,7 +100,7 @@ fn err_is_timeout(err: &(dyn std::error::Error + 'static)) -> bool
     false
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>>
+fn main() -> GenericResult<()>
 {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("debug"));
 

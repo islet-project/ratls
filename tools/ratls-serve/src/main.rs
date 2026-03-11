@@ -1,6 +1,7 @@
 use clap::Parser;
 use log::{error, info};
 
+use ratls_serve::GenericResult;
 use ratls_serve::SimpleFiles;
 use ratls_serve::httpd_run;
 use ratls_serve::{TlsConfig, TlsProtocol};
@@ -43,7 +44,7 @@ struct Cli
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>>
+async fn main() -> GenericResult<()>
 {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("debug"));
 

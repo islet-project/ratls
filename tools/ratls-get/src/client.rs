@@ -35,7 +35,7 @@ impl Client
     }
 
     /// Handle simplified listing request case that doesn't save any file
-    pub fn list_dir(&self, url: &str) -> Result<serde_json::Value, Box<dyn std::error::Error>>
+    pub fn list_dir(&self, url: &str) -> GenericResult<serde_json::Value>
     {
         let (response, content_type, content_length) = self.get(url, None)?;
         debug!(
@@ -52,7 +52,7 @@ impl Client
         url: &str,
         file: &mut fs::File,
         skip: Option<u64>,
-    ) -> Result<u64, Box<dyn std::error::Error>>
+    ) -> GenericResult<u64>
     {
         let (mut response, content_type, content_length) = self.get(url, skip)?;
         debug!(
