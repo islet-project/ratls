@@ -1,0 +1,12 @@
+Information about "MobileBert Question and Answerer Model" Tensorflow Lite model
+================================================================================
+
+The model file (demo-model.tflite) was downloaded from: https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/bert_qa/android/models_tflite_task_library_bert_qa_lite-model_mobilebert_1_metadata_1.tflite
+
+Model Information:
+- Format: TensorFlow Lite v3
+- Name: MobileBert Question and Answerer
+- Version: v1
+- Author: TensorFlow
+- License: Apache License, Version 2.0
+- License URL: http://www.apache.org/licenses/LICENSE-2.0
