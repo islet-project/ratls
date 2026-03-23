@@ -1,0 +1,36 @@
+========================================================================
+MobileBERT Q&A (TensorFlow Lite Model)
+========================================================================
+
+This project uses the MobileBERT model (tools/ratls-serve/root/demo-model.tflite),
+which is distributed under the Apache License, Version 2.0.
+
+Original Model Source: https://www.kaggle.com/models/tensorflow/mobilebert/tfLite/metadata
+The Gradle script of the original TFLite Bert QA demo application downloaded it from:
+https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/bert_qa/android/models_tflite_task_library_bert_qa_lite-model_mobilebert_1_metadata_1.tflite)
+
+The project page: https://github.com/google-research/google-research/tree/master/mobilebert
+
+Model Information:
+- Format: TensorFlow Lite v3
+- Name: MobileBert Question and Answerer
+- Version: v1
+- Author: TensorFlow
+- License: Apache License, Version 2.0
+- License URL: http://www.apache.org/licenses/LICENSE-2.0
+
+As requested by the model publishers, please cite the foundational BERT paper
+for the model architecture and pre-processing methodology:
+
+[1] Jacob Devlin, Ming-Wei Chang, Kenton Lee, Kristina Toutanova.
+"BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding."
+arXiv preprint arXiv:1810.04805, 2018.
+
+Additionally, this specific compressed model utilizes the MobileBERT architecture.
+For accurate academic attribution of the model compression, please cite:
+
+[2] Zhiqing Sun, Hongkun Yu, Xiaodan Song, Renjie Liu, Yiming Yang, and Denny Zhou.
+"MobileBERT: a Compact Task-Agnostic BERT for Resource-Limited Devices."
+Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics. 2020.
+arXiv:2004.02984 [cs.CL].
+
