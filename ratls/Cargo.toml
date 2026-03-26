@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 base64 = { version = "0.22", features = ["alloc"] }
-bcder = ">=0.7.3"
+bcder = "0.7.3"
 env_logger = "0.11"
 lazy_static = "1.5"
 log = "0.4"
@@ -15,7 +15,7 @@ pkcs8 = { version = "0.10", features = ["alloc"] }
 rand = "0.8"
 rcgen = "0.14"
 rsa = { version = "0.9", features = ["nightly", "pkcs5"] }
-rustls = { version = "^0.23", default-features = false, features = ["std", "logging", "tls12", "ring"] }
+rustls = { version = "0.23", default-features = false, features = ["std", "logging", "tls12", "ring"] }
 rustls-pemfile = "2.2"
 sha2 = "0.10"
 simple_asn1 = "0.6"
