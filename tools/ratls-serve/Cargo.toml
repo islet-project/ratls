@@ -4,25 +4,25 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-clap = { version = "*", features = [ "derive" ] }
-serde = { version = "*", features = ["derive"] }
-serde_json = "*"
-log = "*"
-env_logger = "*"
-futures-util = { version = "*", default-features = false }
-rustls-pemfile = "*"
-tokio = { version = "*", features = [ "full" ] }
-tokio-util = { version = "*", features = [ "io" ] }
+clap = { version = "4.6", features = [ "derive" ] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+env_logger = "0.11"
+futures-util = { version = "0.3", default-features = false }
+rustls-pemfile = "2.2"
+tokio = { version = "1.49", features = [ "full" ] }
+tokio-util = { version = "0.7", features = [ "io" ] }
 tokio-rustls = "^0.26"
-hyper = { version = "*", features = [ "full" ] }
-hyper-util = "*"
-tower = { version = "*", features = [ "make", "util", "timeout" ] }
-tower-http = { version = "*", features = [ "add-extension", "trace" ] }
-tower-service = "*"
-axum = "*"
-axum-extra = { version = "*", features = [ "typed-header"] }
-async-trait = "*"
-mime_guess = "*"
+hyper = { version = "1.8", features = [ "full" ] }
+hyper-util = "0.1"
+tower = { version = "0.5", features = [ "make", "util", "timeout" ] }
+tower-http = { version = "0.6", features = [ "add-extension", "trace" ] }
+tower-service = "0.3"
+axum = "0.8"
+axum-extra = { version = "0.12", features = [ "typed-header"] }
+async-trait = "0.1"
+mime_guess = "2.0"
 
 # RA-TLS
 ratls = { git = "https://github.com/islet-project/ratls" }
