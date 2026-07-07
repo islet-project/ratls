@@ -12,7 +12,9 @@ serde_json = "1.0"
 ### DO NOT MODIFY (unless you know what you are doing) ###
 # Reqwest client provides API to pass custom rustls::ClientConfig through "impl Any".
 # Rustls ClientConfig *HAS* to be binary compatible with the one used by Reqwest.
-reqwest = { version = "0.12.5", default-features = false, features = ["blocking", "json", "stream", "rustls-tls"] }
+reqwest = { version = "0.12.5", default-features = false, features = ["json", "rustls-tls", "stream"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs"] }
+futures-util = "0.3"
 rustls = { version = "0.23.4", default-features = false, features = ["std", "logging", "tls12", "ring"] }
 
 # RA-TLS

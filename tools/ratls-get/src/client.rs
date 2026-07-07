@@ -1,7 +1,7 @@
 use log::{debug, error};
-use reqwest::blocking::{Client as ReqwestClient, Response};
-use reqwest::{Url, header};
-use std::fs;
+use reqwest::{Client as ReqwestClient, Response, Url, header};
+use tokio::fs;
+use tokio::io::{AsyncWriteExt, BufWriter};
 
 use crate::tls::{Config, Protocol, ratls_client_config, tls_client_config};
 use crate::{GenericResult, utils};
@@ -14,7 +14,7 @@ pub struct Client
 
 impl Client
 {
-    pub fn from_config(config: Config) -> GenericResult<Self>
+    pub async fn from_config(config: Config) -> GenericResult<Self>
     {
         let protocol = match config.tls {
             Protocol::NoTLS => "http",
@@ -35,37 +35,55 @@ impl Client
     }
 
     /// Handle simplified listing request case that doesn't save any file
-    pub fn list_dir(&self, url: &str) -> GenericResult<serde_json::Value>
+    pub async fn list_dir(&self, url: &str) -> GenericResult<serde_json::Value>
     {
-        let (response, content_type, content_length) = self.get(url, None)?;
+        let (response, content_type, content_length) = self.get(url, None).await?;
         debug!(
             "Received response: Content-type: \"{}\"; Content-length: {}",
             content_type, content_length
         );
 
-        Ok(response.json()?)
+        Ok(response.json().await?)
+    }
+
+    async fn copy_response_stream_to_file(
+        response: Response,
+        file: &mut fs::File,
+    ) -> GenericResult<()>
+    {
+        use futures_util::StreamExt;
+
+        let mut file_writer = BufWriter::new(file);
+        let mut response_stream = response.bytes_stream();
+
+        while let Some(buffer) = response_stream.next().await {
+            file_writer.write_all(&buffer?).await?;
+        }
+
+        file_writer.flush().await?;
+        Ok(())
     }
 
     /// Actually perform the HTTP request and download the file
-    pub fn download_file(
+    pub async fn download_file(
         &self,
         url: &str,
         file: &mut fs::File,
         skip: Option<u64>,
     ) -> GenericResult<u64>
     {
-        let (mut response, content_type, content_length) = self.get(url, skip)?;
+        let (response, content_type, content_length) = self.get(url, skip).await?;
         debug!(
             "Received response: Content-type: \"{}\"; Content-length: {}",
             content_type, content_length
         );
 
-        std::io::copy(&mut response, file)?;
+        Self::copy_response_stream_to_file(response, file).await?;
         Ok(content_length as u64)
     }
 
     // the response needs to contain length and type, it's an error if it doesn't
-    fn get(&self, address: &str, skip: Option<u64>) -> GenericResult<(Response, String, usize)>
+    async fn get(&self, address: &str, skip: Option<u64>) -> GenericResult<(Response, String, usize)>
     {
         // manually check if the protocol is already in the address, url doesn't do it
         let url = if address.contains("://") {
@@ -94,7 +112,7 @@ impl Client
             request
         };
 
-        match request.send() {
+        match request.send().await {
             Ok(response) => {
                 if response.status().is_success() {
                     let headers = response.headers();
