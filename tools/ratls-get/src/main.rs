@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
-use std::{fs, io};
+use std::io;
+use tokio::fs;
 
 use clap::Parser;
 use log::{error, info};
@@ -59,16 +60,16 @@ fn get_save_path(output: &str, url: &str) -> GenericResult<PathBuf>
 }
 
 /// Create new file or append to an existing one returning its length
-fn open_file(save_path: &Path, append: bool) -> GenericResult<(fs::File, Option<u64>)>
+async fn open_file(save_path: &Path, append: bool) -> GenericResult<(fs::File, Option<u64>)>
 {
     if append && save_path.exists() {
         info!("Continuing download as: \"{}\"", save_path.display());
-        let file = fs::File::options().append(true).open(&save_path)?;
-        let length = file.metadata()?.len();
+        let file = fs::OpenOptions::new().append(true).open(&save_path).await?;
+        let length = file.metadata().await?.len();
         Ok((file, Some(length)))
     } else {
         info!("Saving as: \"{}\"", save_path.display());
-        Ok((fs::File::create(save_path)?, None))
+        Ok((fs::File::create(save_path).await?, None))
     }
 }
 
@@ -100,7 +101,8 @@ fn err_is_timeout(err: &(dyn std::error::Error + 'static)) -> bool
     false
 }
 
-fn main() -> GenericResult<()>
+#[tokio::main]
+async fn main() -> GenericResult<()>
 {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("debug"));
 
@@ -117,12 +119,12 @@ fn main() -> GenericResult<()>
         token: cli.token,
     };
 
-    let client = Client::from_config(config)?;
+    let client = Client::from_config(config).await?;
 
     // handle listing case
     if cli.url.ends_with('/') {
         info!("Getting listing: {}", cli.url);
-        let listing = client.list_dir(&cli.url)?;
+        let listing = client.list_dir(&cli.url).await?;
         info!("{}", serde_json::to_string_pretty(&listing)?);
         return Ok(());
     }
@@ -133,9 +135,9 @@ fn main() -> GenericResult<()>
     let mut tries_left = cli.retry;
 
     let (content_length, bytes_saved) = loop {
-        let (mut file, length) = open_file(&save_path, append)?;
+        let (mut file, length) = open_file(&save_path, append).await?;
         info!("Downloading: {}; Skipping: {:?}", cli.url, length);
-        let content_length = match client.download_file(&cli.url, &mut file, length) {
+        let content_length = match client.download_file(&cli.url, &mut file, length).await {
             Ok(content_len) => content_len,
             Err(e) => {
                 if tries_left > 0 && err_is_timeout(e.as_ref()) {
@@ -151,7 +153,7 @@ fn main() -> GenericResult<()>
         };
 
         let skipped = length.unwrap_or(0);
-        let bytes_saved = file.metadata()?.len() - skipped;
+        let bytes_saved = file.metadata().await?.len() - skipped;
 
         break (content_length, bytes_saved);
     };
