@@ -38,6 +38,14 @@ struct Cli
     /// Number of retries in case of a timeout
     #[arg(short = 'n', long, default_value = "3")]
     retry: u16,
+
+    /// The Context ID for vsock connection
+    #[arg(short = 'i', long)]
+    vsock_cid: Option<u32>,
+
+    /// The port for vsock connection
+    #[arg(short = 'p', long)]
+    vsock_port: Option<u32>,
 }
 
 /// Figure out a final path to the file to save including its filename
@@ -119,7 +127,7 @@ async fn main() -> GenericResult<()>
         token: cli.token,
     };
 
-    let client = Client::from_config(config).await?;
+    let client = Client::from_config(config, cli.vsock_cid, cli.vsock_port).await?;
 
     // handle listing case
     if cli.url.ends_with('/') {
