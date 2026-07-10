@@ -8,13 +8,10 @@ clap = { version = "4.6", features = ["derive"] }
 log = "0.4"
 env_logger = "0.11"
 serde_json = "1.0"
+url = "2.5"
 
 ### DO NOT MODIFY (unless you know what you are doing) ###
-# Reqwest client provides API to pass custom rustls::ClientConfig through "impl Any".
-# Rustls ClientConfig *HAS* to be binary compatible with the one used by Reqwest.
-reqwest = { version = "0.12.5", default-features = false, features = ["json", "rustls-tls", "stream"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs"] }
-futures-util = "0.3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util"] }
 rustls = { version = "0.23.4", default-features = false, features = ["std", "logging", "tls12", "ring"] }
 tokio-vsock = "0.7.2"
 tokio-rustls = "0.26.4"
@@ -24,6 +21,7 @@ tower = "0.5.3"
 http-body-util = "0.1.3"
 bytes = "1.12.0"
 http = "1.4.2"
+futures-util = "0.3"
 
 # RA-TLS
 rust-rsi = { git = "https://github.com/islet-project/rust-rsi" }

@@ -81,23 +81,14 @@ async fn open_file(save_path: &Path, append: bool) -> GenericResult<(fs::File, O
     }
 }
 
-/// Check the error and all possible inner errors for timeout.
+/// Check the error for timeout.
 ///
-/// The most often case is a custom io_err (returned from io::copy) that embeds
-/// reqwest_err that embeds hyper_err that is a timeout (but it's not the only
-/// possibility), hence such a deep check is actually required.
+/// Checks if the error or any of its sources is an IO timeout error.
 fn err_is_timeout(err: &(dyn std::error::Error + 'static)) -> bool
 {
-    // first check the error itself before we go deeper
     let mut source = Some(err);
 
     while let Some(err) = source {
-        if let Some(reqwest_err) = err.downcast_ref::<reqwest::Error>() {
-            // this function checks all inner reqwest/hyper/io errors
-            if reqwest_err.is_timeout() {
-                return true;
-            }
-        }
         if let Some(io_err) = err.downcast_ref::<io::Error>() {
             if io_err.kind() == io::ErrorKind::TimedOut {
                 return true;
