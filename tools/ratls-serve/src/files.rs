@@ -56,11 +56,17 @@ impl FilesProvider for SimpleFiles
     {
         let path = Path::new(&self.root).join(address);
 
-        if path.is_absolute() {
-            return Err("Absolute file paths are forbidden!".into());
+        let canonical_path = tokio::fs::canonicalize(&path).await
+            .map_err(|_| "Path does not exist or cannot be resolved")?;
+
+        let canonical_root = tokio::fs::canonicalize(&self.root).await
+            .map_err(|_| "Root cannot be canonicalized")?;
+
+        if !canonical_path.starts_with(&canonical_root) {
+            return Err("Path traversal detected!".into());
         }
 
-        if !path.is_file() {
+        if !canonical_path.is_file() {
             return Err("Path is not a file".into());
         }
 
@@ -92,11 +98,17 @@ impl FilesProvider for SimpleFiles
     {
         let path = Path::new(&self.root).join(address);
 
-        if path.is_absolute() {
-            return Err("Absolute file paths are forbidden!".into());
+        let canonical_path = tokio::fs::canonicalize(&path).await
+            .map_err(|_| "Path does not exist or cannot be resolved")?;
+
+        let canonical_root = tokio::fs::canonicalize(&self.root).await
+            .map_err(|_| "Root cannot be canonicalized")?;
+
+        if !canonical_path.starts_with(&canonical_root) {
+            return Err("Path traversal detected!".into());
         }
 
-        if !path.is_dir() {
+        if !canonical_path.is_dir() {
             return Err("Path is not a directory".into());
         }
 
