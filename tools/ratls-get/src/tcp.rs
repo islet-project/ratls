@@ -109,7 +109,13 @@ impl Service<Uri> for TcpTlsConnector
 
         Box::pin(async move {
             let host = uri.host().ok_or_else(|| "Missing host in URI")?;
-            let port = uri.port_u16().unwrap_or(80);
+            let port = uri.port_u16().unwrap_or_else(|| {
+                if uri.scheme_str() == Some("https") {
+                    443
+                } else {
+                    80
+                }
+            });
             let addr = format!("{}:{}", host, port);
 
             let stream = TcpStream::connect(addr).await?;
