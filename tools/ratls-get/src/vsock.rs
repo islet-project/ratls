@@ -11,14 +11,17 @@ use tokio_vsock::{VsockAddr, VsockStream};
 use tower::Service;
 
 #[derive(Clone)]
-pub struct VsockTlsConnector {
+pub struct VsockTlsConnector
+{
     tls_config: Option<Arc<ClientConfig>>,
     vsock_cid: u32,
     vsock_port: u32,
 }
 
-impl VsockTlsConnector {
-    pub fn new(tls_config: Option<ClientConfig>, vsock_cid: u32, vsock_port: u32) -> Self {
+impl VsockTlsConnector
+{
+    pub fn new(tls_config: Option<ClientConfig>, vsock_cid: u32, vsock_port: u32) -> Self
+    {
         Self {
             tls_config: tls_config.map(Arc::new),
             vsock_cid,
@@ -27,23 +30,28 @@ impl VsockTlsConnector {
     }
 }
 
-pub enum VsockTlsStream {
+pub enum VsockTlsStream
+{
     Plain(VsockStream),
     Tls(tokio_rustls::client::TlsStream<VsockStream>),
 }
 
-impl hyper_util::client::legacy::connect::Connection for VsockTlsStream {
-    fn connected(&self) -> hyper_util::client::legacy::connect::Connected {
+impl hyper_util::client::legacy::connect::Connection for VsockTlsStream
+{
+    fn connected(&self) -> hyper_util::client::legacy::connect::Connected
+    {
         hyper_util::client::legacy::connect::Connected::new()
     }
 }
 
-impl AsyncRead for VsockTlsStream {
+impl AsyncRead for VsockTlsStream
+{
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> Poll<std::io::Result<()>> {
+    ) -> Poll<std::io::Result<()>>
+    {
         match self.get_mut() {
             VsockTlsStream::Plain(s) => Pin::new(s).poll_read(cx, buf),
             VsockTlsStream::Tls(s) => Pin::new(s).poll_read(cx, buf),
@@ -51,26 +59,30 @@ impl AsyncRead for VsockTlsStream {
     }
 }
 
-impl AsyncWrite for VsockTlsStream {
+impl AsyncWrite for VsockTlsStream
+{
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
-    ) -> Poll<std::io::Result<usize>> {
+    ) -> Poll<std::io::Result<usize>>
+    {
         match self.get_mut() {
             VsockTlsStream::Plain(s) => Pin::new(s).poll_write(cx, buf),
             VsockTlsStream::Tls(s) => Pin::new(s).poll_write(cx, buf),
         }
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>>
+    {
         match self.get_mut() {
             VsockTlsStream::Plain(s) => Pin::new(s).poll_flush(cx),
             VsockTlsStream::Tls(s) => Pin::new(s).poll_flush(cx),
         }
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>>
+    {
         match self.get_mut() {
             VsockTlsStream::Plain(s) => Pin::new(s).poll_shutdown(cx),
             VsockTlsStream::Tls(s) => Pin::new(s).poll_shutdown(cx),
@@ -78,16 +90,19 @@ impl AsyncWrite for VsockTlsStream {
     }
 }
 
-impl Service<Uri> for VsockTlsConnector {
+impl Service<Uri> for VsockTlsConnector
+{
     type Response = TokioIo<VsockTlsStream>;
     type Error = Box<dyn std::error::Error + Send + Sync>;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
-    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>
+    {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, uri: Uri) -> Self::Future {
+    fn call(&mut self, uri: Uri) -> Self::Future
+    {
         let cid = self.vsock_cid;
         let port = self.vsock_port;
         let tls_config = self.tls_config.clone();
