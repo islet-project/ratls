@@ -6,8 +6,10 @@ use log::{debug, error};
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::time::Duration;
 use tokio::fs;
 use tokio::io::{AsyncWriteExt, BufWriter};
+use tokio::time::timeout;
 
 use crate::GenericResult;
 use crate::tcp::TcpTlsConnector;
@@ -201,14 +203,16 @@ pub struct Client
 {
     connector: ConnectorEnum,
     protocol: &'static str,
+    timeout: Duration,
 }
 
 impl Client
 {
-    pub async fn from_config(
+    pub async fn new(
         config: Config,
         vsock_cid: Option<u32>,
         vsock_port: Option<u32>,
+        timeout_secs: u64,
     ) -> GenericResult<Self>
     {
         let protocol = match config.tls {
@@ -237,6 +241,7 @@ impl Client
         Ok(Self {
             connector,
             protocol,
+            timeout: Duration::from_secs(timeout_secs),
         })
     }
 
@@ -314,7 +319,13 @@ impl Client
             );
         }
         let req = req.body(Empty::<Bytes>::new())?;
-        let response = client.request(req).await?;
+
+        let response = timeout(self.timeout, client.request(req))
+            .await
+            .map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::TimedOut, "Request timed out")
+            })??;
+
         if !response.status().is_success() {
             return Err(format!("Response not successful: {}", response.status().as_u16()).into());
         }
