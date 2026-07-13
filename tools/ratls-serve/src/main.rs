@@ -26,6 +26,10 @@ struct Cli
     #[arg(short, long, default_value_t, value_enum)]
     tls: TlsProtocol,
 
+    /// server listening address
+    #[arg(short = 'a', long, default_value = "0.0.0.0")]
+    address: String,
+
     /// server port
     #[arg(short, long, default_value_t = 1337)]
     port: u16,
@@ -56,6 +60,7 @@ async fn main() -> GenericResult<()>
         cert: cli.cert,
         key: cli.key,
         tls: cli.tls,
+        address: cli.address,
         port: cli.port,
         veraison_url: cli.veraison_url,
         veraison_pubkey: cli.veraison_pubkey,

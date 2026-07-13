@@ -33,6 +33,7 @@ pub struct Config
     pub cert: String,
     pub key: String,
     pub tls: Protocol,
+    pub address: String,
     pub port: u16,
     pub veraison_url: String,
     pub veraison_pubkey: String,
