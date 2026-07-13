@@ -36,7 +36,13 @@ impl hyper_util::client::legacy::connect::Connection for TcpTlsStream
 {
     fn connected(&self) -> hyper_util::client::legacy::connect::Connected
     {
-        hyper_util::client::legacy::connect::Connected::new()
+        match self {
+            TcpTlsStream::Plain(stream) => stream.connected(),
+            TcpTlsStream::Tls(tls_stream) => {
+                let (tcp_stream, _) = tls_stream.get_ref();
+                tcp_stream.connected()
+            }
+        }
     }
 }
 
