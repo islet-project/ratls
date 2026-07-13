@@ -254,6 +254,10 @@ impl Client
             content_type, content_length
         );
 
+        if !content_type.starts_with("application/json") {
+            return Err(format!("Expected JSON content type, got: {}", content_type).into());
+        }
+
         Ok(serde_json::from_slice(&bytes)?)
     }
 
