@@ -1,76 +1,90 @@
 use bytes::Bytes;
+use http::Uri;
 use http_body_util::{BodyExt, Empty};
 use hyper_util::client::legacy::Client as HyperClient;
 use log::{debug, error};
-use tokio::fs;
-use tokio::io::{AsyncWriteExt, BufWriter};
-use http::Uri;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use tokio::fs;
+use tokio::io::{AsyncWriteExt, BufWriter};
 
+use crate::GenericResult;
 use crate::tcp::TcpTlsConnector;
 use crate::tls::{Config, Protocol, ratls_client_config, tls_client_config};
 use crate::vsock::VsockTlsConnector;
-use crate::GenericResult;
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 #[derive(Clone)]
-pub enum ConnectorEnum {
+pub enum ConnectorEnum
+{
     Tcp(TcpTlsConnector),
     Vsock(VsockTlsConnector),
 }
 
-impl tower::Service<Uri> for ConnectorEnum {
+impl tower::Service<Uri> for ConnectorEnum
+{
     type Response = hyper_util::rt::TokioIo<ConnectorStream>;
     type Error = BoxError;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>
+    {
         match self {
             ConnectorEnum::Tcp(c) => c.poll_ready(cx),
             ConnectorEnum::Vsock(c) => c.poll_ready(cx),
         }
     }
 
-    fn call(&mut self, uri: Uri) -> Self::Future {
+    fn call(&mut self, uri: Uri) -> Self::Future
+    {
         match self {
             ConnectorEnum::Tcp(connector) => {
                 let mut connector = connector.clone();
                 Box::pin(async move {
                     let io = connector.call(uri).await?;
-                    Ok(hyper_util::rt::TokioIo::new(ConnectorStream::from_tcp(io.into_inner())))
+                    Ok(hyper_util::rt::TokioIo::new(ConnectorStream::from_tcp(
+                        io.into_inner(),
+                    )))
                 })
             }
             ConnectorEnum::Vsock(connector) => {
                 let mut connector = connector.clone();
                 Box::pin(async move {
                     let io = connector.call(uri).await?;
-                    Ok(hyper_util::rt::TokioIo::new(ConnectorStream::from_vsock(io.into_inner())))
+                    Ok(hyper_util::rt::TokioIo::new(ConnectorStream::from_vsock(
+                        io.into_inner(),
+                    )))
                 })
             }
         }
     }
 }
 
-pub enum ConnectorStream {
+pub enum ConnectorStream
+{
     Tcp(crate::tcp::TcpTlsStream),
     Vsock(crate::vsock::VsockTlsStream),
 }
 
-impl ConnectorStream {
-    fn from_tcp(stream: crate::tcp::TcpTlsStream) -> Self {
+impl ConnectorStream
+{
+    fn from_tcp(stream: crate::tcp::TcpTlsStream) -> Self
+    {
         ConnectorStream::Tcp(stream)
     }
 
-    fn from_vsock(stream: crate::vsock::VsockTlsStream) -> Self {
+    fn from_vsock(stream: crate::vsock::VsockTlsStream) -> Self
+    {
         ConnectorStream::Vsock(stream)
     }
 }
 
-impl hyper_util::client::legacy::connect::Connection for ConnectorStream {
-    fn connected(&self) -> hyper_util::client::legacy::connect::Connected {
+impl hyper_util::client::legacy::connect::Connection for ConnectorStream
+{
+    fn connected(&self) -> hyper_util::client::legacy::connect::Connected
+    {
         match self {
             ConnectorStream::Tcp(s) => s.connected(),
             ConnectorStream::Vsock(s) => s.connected(),
@@ -78,12 +92,14 @@ impl hyper_util::client::legacy::connect::Connection for ConnectorStream {
     }
 }
 
-impl tokio::io::AsyncRead for ConnectorStream {
+impl tokio::io::AsyncRead for ConnectorStream
+{
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> Poll<std::io::Result<()>> {
+    ) -> Poll<std::io::Result<()>>
+    {
         match self.get_mut() {
             ConnectorStream::Tcp(s) => Pin::new(s).poll_read(cx, buf),
             ConnectorStream::Vsock(s) => Pin::new(s).poll_read(cx, buf),
@@ -91,26 +107,30 @@ impl tokio::io::AsyncRead for ConnectorStream {
     }
 }
 
-impl tokio::io::AsyncWrite for ConnectorStream {
+impl tokio::io::AsyncWrite for ConnectorStream
+{
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
-    ) -> Poll<std::io::Result<usize>> {
+    ) -> Poll<std::io::Result<usize>>
+    {
         match self.get_mut() {
             ConnectorStream::Tcp(s) => Pin::new(s).poll_write(cx, buf),
             ConnectorStream::Vsock(s) => Pin::new(s).poll_write(cx, buf),
         }
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>>
+    {
         match self.get_mut() {
             ConnectorStream::Tcp(s) => Pin::new(s).poll_flush(cx),
             ConnectorStream::Vsock(s) => Pin::new(s).poll_flush(cx),
         }
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>>
+    {
         match self.get_mut() {
             ConnectorStream::Tcp(s) => Pin::new(s).poll_shutdown(cx),
             ConnectorStream::Vsock(s) => Pin::new(s).poll_shutdown(cx),
@@ -118,13 +138,16 @@ impl tokio::io::AsyncWrite for ConnectorStream {
     }
 }
 
-enum ResponseWrapper {
+enum ResponseWrapper
+{
     Tcp(hyper::Response<hyper::body::Incoming>),
     Vsock(hyper::Response<hyper::body::Incoming>),
 }
 
-impl ResponseWrapper {
-    fn content_type(&self) -> Option<String> {
+impl ResponseWrapper
+{
+    fn content_type(&self) -> Option<String>
+    {
         let headers = match self {
             ResponseWrapper::Tcp(r) => r.headers(),
             ResponseWrapper::Vsock(r) => r.headers(),
@@ -134,7 +157,8 @@ impl ResponseWrapper {
             .and_then(|h| h.to_str().ok().map(|s| s.to_string()))
     }
 
-    fn content_length(&self) -> Option<usize> {
+    fn content_length(&self) -> Option<usize>
+    {
         let headers = match self {
             ResponseWrapper::Tcp(r) => r.headers(),
             ResponseWrapper::Vsock(r) => r.headers(),
@@ -144,7 +168,8 @@ impl ResponseWrapper {
             .and_then(|h| h.to_str().ok()?.parse().ok())
     }
 
-    async fn stream_to_file(self, file: &mut fs::File) -> GenericResult<()> {
+    async fn stream_to_file(self, file: &mut fs::File) -> GenericResult<()>
+    {
         let mut writer = BufWriter::new(file);
         let (_, mut body) = match self {
             ResponseWrapper::Tcp(r) => r.into_parts(),
@@ -161,7 +186,8 @@ impl ResponseWrapper {
         Ok(())
     }
 
-    async fn collect_bytes(self) -> GenericResult<Vec<u8>> {
+    async fn collect_bytes(self) -> GenericResult<Vec<u8>>
+    {
         let body = match self {
             ResponseWrapper::Tcp(r) => r.into_body(),
             ResponseWrapper::Vsock(r) => r.into_body(),
@@ -171,17 +197,20 @@ impl ResponseWrapper {
     }
 }
 
-pub struct Client {
+pub struct Client
+{
     connector: ConnectorEnum,
     protocol: &'static str,
 }
 
-impl Client {
+impl Client
+{
     pub async fn from_config(
         config: Config,
         vsock_cid: Option<u32>,
         vsock_port: Option<u32>,
-    ) -> GenericResult<Self> {
+    ) -> GenericResult<Self>
+    {
         let protocol = match config.tls {
             Protocol::NoTLS => "http",
             Protocol::TLS | Protocol::RaTLS => "https",
@@ -212,7 +241,8 @@ impl Client {
     }
 
     /// Handle simplified listing request case that doesn't save any file
-    pub async fn list_dir(&self, url: &str) -> GenericResult<serde_json::Value> {
+    pub async fn list_dir(&self, url: &str) -> GenericResult<serde_json::Value>
+    {
         let (bytes, content_type, content_length) = self.get(url, None).await?;
         debug!(
             "Received response: Content-type: \"{}\"; Content-length: {}",
@@ -228,9 +258,12 @@ impl Client {
         url: &str,
         file: &mut fs::File,
         skip: Option<u64>,
-    ) -> GenericResult<u64> {
+    ) -> GenericResult<u64>
+    {
         let response = self.get_response(url, skip).await?;
-        let content_type = response.content_type().ok_or("Response doesn't contain Content-type")?;
+        let content_type = response
+            .content_type()
+            .ok_or("Response doesn't contain Content-type")?;
         let content_length = response
             .content_length()
             .ok_or("Response doesn't contain Content-length")?;
@@ -243,17 +276,18 @@ impl Client {
         Ok(content_length as u64)
     }
 
-    fn build_client(
-        &self,
-    ) -> HyperClient<ConnectorEnum, Empty<Bytes>> {
+    fn build_client(&self) -> HyperClient<ConnectorEnum, Empty<Bytes>>
+    {
         HyperClient::builder(hyper_util::rt::TokioExecutor::new()).build(self.connector.clone())
     }
 
-    async fn get_response(&self, address: &str, skip: Option<u64>) -> GenericResult<ResponseWrapper> {
+    async fn get_response(&self, address: &str, skip: Option<u64>)
+    -> GenericResult<ResponseWrapper>
+    {
         // manually check if the protocol is already in the address, url doesn't do it
         let url = if address.contains("://") {
-            let url =
-                url::Url::parse(address).inspect_err(|_| error!("Failed to parse URL: {}", address))?;
+            let url = url::Url::parse(address)
+                .inspect_err(|_| error!("Failed to parse URL: {}", address))?;
             if url.scheme() != self.protocol {
                 return Err(format!(
                     "Wrong protocol for the TLS type, got: {}, expected: {}",
@@ -272,9 +306,7 @@ impl Client {
 
         let client = self.build_client();
 
-        let mut req = http::Request::builder()
-            .method(http::Method::GET)
-            .uri(&url);
+        let mut req = http::Request::builder().method(http::Method::GET).uri(&url);
         if let Some(skip_bytes) = skip {
             req = req.header(
                 http::header::RANGE.as_str(),
@@ -293,13 +325,13 @@ impl Client {
         })
     }
 
-    async fn get(
-        &self,
-        address: &str,
-        skip: Option<u64>,
-    ) -> GenericResult<(Vec<u8>, String, usize)> {
+    async fn get(&self, address: &str, skip: Option<u64>)
+    -> GenericResult<(Vec<u8>, String, usize)>
+    {
         let response = self.get_response(address, skip).await?;
-        let content_type = response.content_type().ok_or("Response doesn't contain Content-type")?;
+        let content_type = response
+            .content_type()
+            .ok_or("Response doesn't contain Content-type")?;
         let content_length = response
             .content_length()
             .ok_or("Response doesn't contain Content-length")?;
