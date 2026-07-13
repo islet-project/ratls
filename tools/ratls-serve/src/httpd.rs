@@ -30,7 +30,7 @@ pub async fn run<T: FilesProvider + 'static>(files: T, config: Config) -> Generi
         .fallback(fallback)
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
 
-    let address = format!("0.0.0.0:{}", config.port);
+    let address = format!("{}:{}", config.address, config.port);
     debug!("Binding address: {}", address);
     let listener = tokio::net::TcpListener::bind(address).await?;
 
