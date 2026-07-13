@@ -46,6 +46,10 @@ struct Cli
     /// The port for vsock connection
     #[arg(short = 'p', long)]
     vsock_port: Option<u32>,
+
+    /// Timeout in seconds for HTTP requests (default: 60)
+    #[arg(long, default_value = "60")]
+    timeout_secs: u64,
 }
 
 /// Figure out a final path to the file to save including its filename
@@ -112,13 +116,13 @@ async fn main() -> GenericResult<()>
         return Err("Address needs to contain a path, at least '/' after hostname".into());
     }
 
-    let config = TlsConfig {
+    let tls_config = TlsConfig {
         root_ca: cli.root_ca,
         tls: cli.tls,
         token: cli.token,
     };
 
-    let client = Client::from_config(config, cli.vsock_cid, cli.vsock_port).await?;
+    let client = Client::new(tls_config, cli.vsock_cid, cli.vsock_port, cli.timeout_secs).await?;
 
     // handle listing case
     if cli.url.ends_with('/') {
