@@ -47,6 +47,10 @@ struct Cli
     #[arg(short = 'p', long)]
     vsock_port: Option<u32>,
 
+    /// Use connection protocol to select the server (provisioning-vsock-proxy should also run with that option)
+    #[arg(long, default_value_t = false)]
+    conproto: bool,
+
     /// Timeout in seconds for HTTP requests (default: 60)
     #[arg(long, default_value = "60")]
     timeout_secs: u64,
@@ -122,7 +126,14 @@ async fn main() -> GenericResult<()>
         token: cli.token,
     };
 
-    let client = Client::new(tls_config, cli.vsock_cid, cli.vsock_port, cli.timeout_secs).await?;
+    let client = Client::new(
+        tls_config,
+        cli.vsock_cid,
+        cli.vsock_port,
+        cli.timeout_secs,
+        cli.conproto,
+    )
+    .await?;
 
     // handle listing case
     if cli.url.ends_with('/') {

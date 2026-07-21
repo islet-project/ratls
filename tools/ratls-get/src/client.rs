@@ -213,6 +213,7 @@ impl Client
         vsock_cid: Option<u32>,
         vsock_port: Option<u32>,
         timeout_secs: u64,
+        conproto: bool,
     ) -> GenericResult<Self>
     {
         let protocol = match config.tls {
@@ -226,7 +227,7 @@ impl Client
                 Protocol::TLS => Some(tls_client_config(config)?),
                 Protocol::RaTLS => Some(ratls_client_config(config)?),
             };
-            let vsock_connector = VsockTlsConnector::new(tls_config, cid, port);
+            let vsock_connector = VsockTlsConnector::new(tls_config, cid, port, conproto);
             ConnectorEnum::Vsock(vsock_connector)
         } else {
             let tls_config = match config.tls {

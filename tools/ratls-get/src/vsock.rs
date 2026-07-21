@@ -10,22 +10,31 @@ use tokio_rustls::rustls::{ClientConfig, pki_types::ServerName};
 use tokio_vsock::{VsockAddr, VsockStream};
 use tower::Service;
 
+use crate::conproto;
+
 #[derive(Clone)]
 pub struct VsockTlsConnector
 {
     tls_config: Option<Arc<ClientConfig>>,
     vsock_cid: u32,
     vsock_port: u32,
+    conproto: bool,
 }
 
 impl VsockTlsConnector
 {
-    pub fn new(tls_config: Option<ClientConfig>, vsock_cid: u32, vsock_port: u32) -> Self
+    pub fn new(
+        tls_config: Option<ClientConfig>,
+        vsock_cid: u32,
+        vsock_port: u32,
+        conproto: bool,
+    ) -> Self
     {
         Self {
             tls_config: tls_config.map(Arc::new),
             vsock_cid,
             vsock_port,
+            conproto,
         }
     }
 }
@@ -106,11 +115,26 @@ impl Service<Uri> for VsockTlsConnector
         let cid = self.vsock_cid;
         let port = self.vsock_port;
         let tls_config = self.tls_config.clone();
+        let conproto = self.conproto;
 
         Box::pin(async move {
             let addr = VsockAddr::new(cid, port);
-            let stream = VsockStream::connect(addr).await?;
+            let mut stream = VsockStream::connect(addr).await?;
+
+            // Extract hostname for TLS verification (always needed for HTTPS)
             let hostname = uri.host().ok_or_else(|| "Missing host in URI")?;
+
+            if conproto {
+                let dest_port = uri
+                    .port_u16()
+                    .unwrap_or(if uri.scheme_str() == Some("https") {
+                        443
+                    } else {
+                        80
+                    });
+
+                conproto::connect(&mut stream, hostname, dest_port).await?;
+            }
 
             if uri.scheme_str() == Some("https") {
                 if let Some(config) = tls_config {
