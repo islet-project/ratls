@@ -221,13 +221,15 @@ impl Client
             Protocol::TLS | Protocol::RaTLS => "https",
         };
 
+        let timeout_duration = Duration::from_secs(timeout_secs);
+
         let connector = if let (Some(cid), Some(port)) = (vsock_cid, vsock_port) {
             let tls_config = match config.tls {
                 Protocol::NoTLS => None,
                 Protocol::TLS => Some(tls_client_config(config)?),
                 Protocol::RaTLS => Some(ratls_client_config(config)?),
             };
-            let vsock_connector = VsockTlsConnector::new(tls_config, cid, port, conproto);
+            let vsock_connector = VsockTlsConnector::new(tls_config, cid, port, conproto, timeout_duration);
             ConnectorEnum::Vsock(vsock_connector)
         } else {
             let tls_config = match config.tls {
