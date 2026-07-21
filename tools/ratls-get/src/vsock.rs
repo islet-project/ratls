@@ -4,6 +4,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_rustls::TlsConnector;
 use tokio_rustls::rustls::{ClientConfig, pki_types::ServerName};
@@ -19,6 +20,7 @@ pub struct VsockTlsConnector
     vsock_cid: u32,
     vsock_port: u32,
     conproto: bool,
+    timeout: Duration,
 }
 
 impl VsockTlsConnector
@@ -28,6 +30,7 @@ impl VsockTlsConnector
         vsock_cid: u32,
         vsock_port: u32,
         conproto: bool,
+        timeout: Duration,
     ) -> Self
     {
         Self {
@@ -35,6 +38,7 @@ impl VsockTlsConnector
             vsock_cid,
             vsock_port,
             conproto,
+            timeout,
         }
     }
 }
@@ -116,10 +120,15 @@ impl Service<Uri> for VsockTlsConnector
         let port = self.vsock_port;
         let tls_config = self.tls_config.clone();
         let conproto = self.conproto;
+        let timeout_dur = self.timeout;
 
         Box::pin(async move {
             let addr = VsockAddr::new(cid, port);
-            let mut stream = VsockStream::connect(addr).await?;
+
+            // Wrap VSOCK connection in timeout
+            let mut stream = tokio::time::timeout(timeout_dur, VsockStream::connect(addr))
+                .await
+                .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "VSOCK connect timeout"))??;
 
             // Extract hostname for TLS verification (always needed for HTTPS)
             let hostname = uri.host().ok_or_else(|| "Missing host in URI")?;
@@ -133,7 +142,10 @@ impl Service<Uri> for VsockTlsConnector
                         80
                     });
 
-                conproto::connect(&mut stream, hostname, dest_port).await?;
+                // Wrap conproto connect in timeout
+                tokio::time::timeout(timeout_dur, conproto::connect(&mut stream, hostname, dest_port, timeout_dur))
+                    .await
+                    .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "Conproto timeout"))??;
             }
 
             if uri.scheme_str() == Some("https") {
@@ -143,7 +155,10 @@ impl Service<Uri> for VsockTlsConnector
                         .map_err(|_| "Invalid domain name")?
                         .to_owned();
 
-                    let tls_stream = connector.connect(domain, stream).await?;
+                    // Wrap TLS handshake in timeout
+                    let tls_stream = tokio::time::timeout(timeout_dur, connector.connect(domain, stream))
+                        .await
+                        .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "TLS handshake timeout"))??;
                     Ok(TokioIo::new(VsockTlsStream::Tls(tls_stream)))
                 } else {
                     Err("HTTPS requested but no TLS config provided".into())

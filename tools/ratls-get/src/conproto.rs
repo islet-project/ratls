@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_vsock::VsockStream;
 
@@ -61,6 +62,7 @@ pub async fn connect(
     stream: &mut VsockStream,
     hostname: &str,
     dest_port: u16,
+    timeout_dur: Duration,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 {
     let server_addr = format!("{}:{}", hostname, dest_port);
@@ -71,7 +73,10 @@ pub async fn connect(
     };
 
     send_request(stream, &request).await?;
-    let response = receive_response(stream).await?;
+
+    let response = tokio::time::timeout(timeout_dur, receive_response(stream))
+        .await
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "Proxy response timeout"))??;
 
     if response.status != "SUCCESS" {
         return Err(format!("Proxy connection failed: {:?}", response.reason).into());
