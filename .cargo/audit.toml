@@ -1,0 +1,17 @@
+# cargo-audit configuration for the ratls workspace.
+# https://github.com/RustSec/cargo-audit/blob/main/docs/usage.md#configuration
+
+[advisories]
+ignore = [
+    # RUSTSEC-2023-0071 (Marvin): RSA PKCS#1 v1.5 decryption timing side-channel.
+    # Not applicable to this workspace: `rsa` is used ONLY to generate ephemeral
+    # RSA-2048 keypairs and export public/PKCS#8 keys for self-signed RA-TLS
+    # certificates (ratls/src/cert_resolver.rs). No RSA decryption of attacker-
+    # supplied ciphertext ever happens; TLS handshake signing is done by rustls'
+    # ring backend. The advisory has no fixed stable upgrade available
+    # (rsa 0.9.10 is the latest stable; fix is only in unreleased 0.10 line),
+    # so this ignore is the only available remediation short of dropping the
+    # crate (would require switching the RA-TLS cert key algorithm, which is
+    # a protocol-visible change needing verifier sign-off).
+    "RUSTSEC-2023-0071",
+]
