@@ -61,4 +61,15 @@ An ARM CCA token neither includes timestamps nor validity periods. Therefore, a 
 
 The second difference is that, this solution is going to be based on [TLSv1.3](https://www.rfc-editor.org/rfc/rfc8446). In TLSv1.3 all handshake messages after the ServerHello message are encrypted. Thus, the client and server certificates are also encrypted. This protects from eavesdropping confidential information carried in the attestation reports. The ARM CCA attestation token also contains information about firmware versions. An adversary could utilize that information to perform an attack.
 
-Note: ratls is an experimental, pre-production library designed for short-lived, point-in-time initial attestation flows on simulated Arm CCA platforms. It does not implement continuous runtime re-attestation for long-lived connections.
+## Note
+
+ratls is an experimental, pre-production library developed for testing and prototyping on simulated Arm CCA environments. It is not intended for production deployment.
+
+- **Modular Role in Islet**: ratls is only one optional attestation transport mechanism used within Islet for early prototyping. Islet itself is protocol-agnostic, can integrate with other remote attestation protocols, and will transition to standardized protocols as the ecosystem matures.
+
+- **Short-Lived Connection Model (No Long-Lived Sessions or Re-Attestation)**: ratls is designed strictly for short-lived, single-operation provisioning flows, establishing a fresh connection and generating a new ephemeral key pair inside the Realm for each individual request or downloaded file. Long-lived connections and periodic post-handshake re-attestation are neither used nor supported. ratls performs point-in-time initial attestation to verify the Realm's initial state prior to secret provisioning; subsequent runtime integrity relies on Arm CCA hardware isolation and memory protection boundaries rather than network-layer polling.
+
+- **Standardization Status (IETF SEAT WG)**: No ratified standard currently exists for combining TLS with remote attestation (Attested TLS / RA-TLS). The security properties, threat models, and architectural trade-offs between pre-handshake, intra-handshake, and post-handshake attestation—as well as cryptographic binding mechanisms—remain under active debate on the IETF Secure Evidence and Attestation Transport (SEAT) Working Group mailing lists. Because current proposals are still competing, work-in-progress Internet-Drafts, ratls avoids implementing unratified protocol extensions or custom modifications to the TLS 1.3 key schedule. We are actively monitoring the IETF SEAT WG standardization work and will adopt ratified standards once the working group reaches consensus.
+
+- **Simulated Hardware & Appraisal Policies**: Because ratls runs on simulated platforms where commercial silicon root-of-trust infrastructure is not present, deployment-specific appraisal policies (such as enforcing allowlists of physical Platform Instance IDs or checking hardware-vendor revocation lists) and physical side-channel mitigations are out of scope for this repository.
+
