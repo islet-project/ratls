@@ -1,3 +1,5 @@
 # RA-TLS library
 
 This crate uses RusTLS library to provide a **R**emote **A**ttestation **TLS** protocol. It is achieved by providing a custom certificate resolver which creates a x509 certificate with embedded ARM CCA attestation token. Consequently a custom certificate verifier is also provided to check the special certificate in the Relying Party server. Those certificate utilities are provided in the RusTLS config during client and server creation. Thanks to integration with RusTLS library this crate can also be utilized in all any creates that relay on RusTLS. The exact beahavior of fetching and verifying the attestation token is specyfied by providing a concrete attestation token resolver for the certificate resolver and a concrete token verifier for the certificate verifier. Examples of these resolvers and verifier are provided in this crate.
+
+Note: ratls is an experimental, pre-production library designed for short-lived, point-in-time initial attestation flows on simulated Arm CCA platforms. It does not implement continuous runtime re-attestation for long-lived connections.
