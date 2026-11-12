@@ -60,3 +60,5 @@ The main difference between RA-TLS and SGX Attested TLS is that in this case the
 An ARM CCA token neither includes timestamps nor validity periods. Therefore, a standard nonce-based method is used to achieve freshness of the attestation evidence. The freshness of the exchanged messages in the protocol is guaranteed by the TLS itself, as the nonces in the record layer protect against replays.
 
 The second difference is that, this solution is going to be based on [TLSv1.3](https://www.rfc-editor.org/rfc/rfc8446). In TLSv1.3 all handshake messages after the ServerHello message are encrypted. Thus, the client and server certificates are also encrypted. This protects from eavesdropping confidential information carried in the attestation reports. The ARM CCA attestation token also contains information about firmware versions. An adversary could utilize that information to perform an attack.
+
+Note: ratls is an experimental, pre-production library designed for short-lived, point-in-time initial attestation flows on simulated Arm CCA platforms. It does not implement continuous runtime re-attestation for long-lived connections.
